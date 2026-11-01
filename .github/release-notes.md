@@ -1,0 +1,3 @@
+- Aktualizacje prosto z aplikacji: BlueTools sam sprawdza, czy jest nowa wersja, i pokazuje, co się zmieniło.
+- Źródło dla SideStore i LiveContainer, dodawane jednym kliknięciem.
+- Nowa sekcja w ustawieniach z przyciskami instalacji i adresem źródła do skopiowania.

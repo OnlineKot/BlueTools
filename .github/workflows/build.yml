@@ -1,0 +1,95 @@
+name: Build IPA
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate project
+        run: xcodegen generate
+
+      - name: Version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "APP_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "APP_VERSION=$(grep MARKETING_VERSION project.yml | head -1 | sed -E 's/.*"(.*)".*/\1/')" >> "$GITHUB_ENV"
+          fi
+          echo "BUILD_NUMBER=${{ github.run_number }}" >> "$GITHUB_ENV"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]] || [[ "$GITHUB_EVENT_NAME" == "push" && "$COMMIT_MESSAGE" == *"[release]"* ]]; then
+            echo "PUBLISH=true" >> "$GITHUB_ENV"
+          fi
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -project BlueTools.xcodeproj \
+            -scheme BlueTools \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            MARKETING_VERSION="$APP_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+            build > build.log 2>&1 || { grep -E "error:" build.log; tail -n 30 build.log; exit 1; }
+          grep -E "warning:" build.log | sort -u || true
+          test -f build/Build/Products/Release-iphoneos/BlueTools.app/BlueTools
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -R build/Build/Products/Release-iphoneos/BlueTools.app Payload/
+          zip -qry BlueTools.ipa Payload
+          ls -lh BlueTools.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BlueTools-ipa
+          path: BlueTools.ipa
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-log
+          path: build.log
+
+      - name: Source for SideStore and LiveContainer
+        if: env.PUBLISH == 'true'
+        run: |
+          python3 scripts/make_source.py "$APP_VERSION" BlueTools.ipa .github/release-notes.md source.json
+          cp BlueTools/Assets.xcassets/AppIcon.appiconset/icon.png icon.png
+          cp .github/assets/banner.png banner.png
+
+      - name: Release
+        if: env.PUBLISH == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: BlueTools ${{ env.APP_VERSION }}
+          tag_name: v${{ env.APP_VERSION }}
+          target_commitish: ${{ github.sha }}
+          body_path: .github/release-notes.md
+          make_latest: true
+          files: |
+            BlueTools.ipa
+            source.json
+            icon.png
+            banner.png
