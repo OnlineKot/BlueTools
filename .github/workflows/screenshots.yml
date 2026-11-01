@@ -94,8 +94,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/screenshots
           if git diff --cached --quiet; then
-            echo "Bez zmian"
+            echo "No changes"
           else
             git commit -m "Update screenshots"
-            git push
+            for attempt in 1 2 3; do
+              git pull --rebase origin "${{ github.ref_name }}" && git push && break
+              sleep 5
+            done
           fi
