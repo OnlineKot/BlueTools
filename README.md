@@ -119,7 +119,7 @@ zip -qry BlueTools.ipa Payload
 
 ## Jak wychodzą nowe wersje
 
-Wystarczy wypchnąć tag, np. `v1.2.0`. GitHub Actions zbuduje IPA, ustawi w nim ten numer wersji i wrzuci do wydania cztery pliki: `BlueTools.ipa`, `source.json`, ikonę i baner. Opis zmian bierze się z pliku `.github/release-notes.md`, więc przed tagiem warto go poprawić.
+Wystarczy podbić `MARKETING_VERSION` w `project.yml` i wypchnąć commit, który ma w opisie `[release]` (albo wypchnąć tag, np. `v1.2.0`). GitHub Actions zbuduje IPA, ustawi w nim ten numer wersji i wrzuci do wydania cztery pliki: `BlueTools.ipa`, `source.json`, ikonę i baner. Opis zmian bierze się z pliku `.github/release-notes.md`, więc przed tagiem warto go poprawić.
 
 `source.json` zawsze leży pod tym samym adresem (`releases/latest/download`), więc SideStore, LiveContainer i sama apka od razu widzą nową wersję.
 
