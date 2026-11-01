@@ -13,12 +13,15 @@ struct ScannerView: View {
 
     var body: some View {
         NavigationStack {
-            content
-                .navigationTitle("W pobliżu")
-                .toolbar { toolbar }
-                .navigationDestination(for: UUID.self) { id in
-                    DeviceDetailView(deviceID: id)
-                }
+            ZStack {
+                AppBackground()
+                content
+            }
+            .navigationTitle("Nearby")
+            .toolbar { toolbar }
+            .navigationDestination(for: UUID.self) { id in
+                DeviceDetailView(deviceID: id)
+            }
         }
     }
 
@@ -28,25 +31,25 @@ struct ScannerView: View {
         case .poweredOff:
             EmptyStateView(
                 icon: "antenna.radiowaves.left.and.right.slash",
-                title: "Bluetooth jest wyłączony",
-                message: "Włącz go w Centrum sterowania albo w Ustawieniach i wróć tutaj."
+                title: "Bluetooth is off",
+                message: "Turn it on in Control Center or Settings, then come back."
             )
         case .unauthorized:
             EmptyStateView(
-                icon: "hand.raised",
-                title: "Brak dostępu do Bluetooth",
-                message: "Bez tej zgody nie zobaczę żadnego urządzenia. Możesz ją dać w Ustawieniach systemu.",
-                actionTitle: "Otwórz Ustawienia",
+                icon: "hand.raised.fill",
+                title: "No Bluetooth access",
+                message: "BlueTools can't see anything without it. You can allow it in Settings.",
+                actionTitle: "Open Settings",
                 action: openSettings
             )
         case .unsupported:
             EmptyStateView(
-                icon: "exclamationmark.triangle",
-                title: "To urządzenie nie obsługuje BLE",
-                message: "Niestety tutaj nic nie zdziałam."
+                icon: "exclamationmark.triangle.fill",
+                title: "Bluetooth LE not supported",
+                message: "This device can't scan for Bluetooth LE."
             )
         case .unknown, .resetting:
-            ProgressView("Chwilka…")
+            ProgressView()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .ready:
             deviceList
@@ -58,104 +61,118 @@ struct ScannerView: View {
         let pinned = all.filter { pins.isPinned($0.id) }
         let others = all.filter { !pins.isPinned($0.id) }
 
-        return List {
-            Section {
-                statusRow
-            }
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                statusCard
 
-            if !pinned.isEmpty {
-                Section("Przypięte") {
-                    ForEach(pinned) { row(for: $0) }
+                if !pinned.isEmpty {
+                    group(title: "Pinned", devices: pinned)
                 }
-            }
 
-            Section {
                 if others.isEmpty {
-                    Text(bluetooth.isScanning ? "Szukam… zwykle trwa to kilka sekund." : "Skanowanie jest wstrzymane.")
-                        .foregroundStyle(.secondary)
+                    Text(bluetooth.isScanning ? "Looking around… this usually takes a few seconds." : "Scanning is paused.")
                         .font(.callout)
-                        .padding(.vertical, 8)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(24)
+                        .glassCard()
                 } else {
-                    ForEach(others) { row(for: $0) }
+                    group(title: pinned.isEmpty ? "Devices" : "Everything else", devices: others)
                 }
-            } header: {
-                Text(pinned.isEmpty ? "Urządzenia" : "Pozostałe")
-            } footer: {
+
                 if hiddenCount > 0 {
-                    Text("Ukryte przez filtry: \(hiddenCount)")
+                    Text("\(hiddenCount) hidden by filters")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity)
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 24)
+            .animation(.spring(response: 0.35, dampingFraction: 0.85), value: all.map(\.id))
         }
-        .listStyle(.insetGrouped)
-        .searchable(text: $query, prompt: "Nazwa, producent lub UUID")
-        .refreshable {
-            bluetooth.clear()
-        }
-        .animation(.default, value: all.map(\.id))
+        .scrollDismissesKeyboard(.immediately)
+        .searchable(text: $query, prompt: "Name, maker, type or UUID")
+        .refreshable { bluetooth.clear() }
     }
 
-    private var statusRow: some View {
-        HStack(spacing: 12) {
+    private func group(title: String, devices: [DiscoveredDevice]) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .padding(.horizontal, 6)
+            GlassGroup(spacing: 10) {
+                VStack(spacing: 10) {
+                    ForEach(devices) { device in
+                        NavigationLink(value: device.id) {
+                            DeviceRow(device: device, nickname: pins.nickname(for: device.id), pinned: pins.isPinned(device.id))
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu { menu(for: device) }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func menu(for device: DiscoveredDevice) -> some View {
+        Button {
+            pins.toggle(device.id)
+        } label: {
+            Label(pins.isPinned(device.id) ? "Unpin" : "Pin", systemImage: pins.isPinned(device.id) ? "pin.slash" : "pin")
+        }
+        Button {
+            UIPasteboard.general.string = device.id.uuidString
+        } label: {
+            Label("Copy identifier", systemImage: "doc.on.doc")
+        }
+    }
+
+    private var statusCard: some View {
+        HStack(spacing: 14) {
             PulseDot(active: bluetooth.isScanning)
             VStack(alignment: .leading, spacing: 2) {
-                Text(bluetooth.isScanning ? "Skanuję" : "Wstrzymane")
-                    .font(.subheadline.weight(.semibold))
-                Text("Widzę \(bluetooth.devices.count) \(deviceWord(bluetooth.devices.count))")
+                Text(bluetooth.isScanning ? "Scanning" : "Paused")
+                    .font(.headline)
+                Text(summary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button(bluetooth.isScanning ? "Pauza" : "Wznów") {
-                bluetooth.wantsScanning.toggle()
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { bluetooth.wantsScanning.toggle() }
+            } label: {
+                Image(systemName: bluetooth.isScanning ? "pause.fill" : "play.fill")
+                    .frame(width: 22, height: 22)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            .glassButton()
         }
-        .padding(.vertical, 2)
+        .padding(16)
+        .glassCard(tint: Color.mint1.opacity(0.12))
     }
 
-    private func row(for device: DiscoveredDevice) -> some View {
-        NavigationLink(value: device.id) {
-            DeviceRow(device: device, nickname: pins.nickname(for: device.id), pinned: pins.isPinned(device.id))
-        }
-        .swipeActions(edge: .leading) {
-            Button {
-                pins.toggle(device.id)
-            } label: {
-                if pins.isPinned(device.id) {
-                    Label("Odepnij", systemImage: "pin.slash")
-                } else {
-                    Label("Przypnij", systemImage: "pin")
-                }
-            }
-            .tint(.orange)
-        }
-        .contextMenu {
-            Button {
-                pins.toggle(device.id)
-            } label: {
-                Label(pins.isPinned(device.id) ? "Odepnij" : "Przypnij", systemImage: "pin")
-            }
-            Button {
-                UIPasteboard.general.string = device.id.uuidString
-            } label: {
-                Label("Kopiuj identyfikator", systemImage: "doc.on.doc")
-            }
-        }
+    private var summary: String {
+        let devices = bluetooth.devices
+        let identified = devices.filter { $0.identity.kind != .unknown || $0.identity.model != nil }.count
+        let word = devices.count == 1 ? "device" : "devices"
+        return "\(devices.count) \(word) · \(identified) identified"
     }
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .navigationBarTrailing) {
             Menu {
-                Picker("Sortuj", selection: $sortOrder) {
+                Picker("Sort by", selection: $sortOrder) {
                     ForEach(SortOrder.allCases) { order in
                         Text(order.title).tag(order)
                     }
                 }
-                Toggle("Ukryj bez nazwy", isOn: $hideUnnamed)
+                Toggle("Hide unnamed", isOn: $hideUnnamed)
             } label: {
-                Image(systemName: "line.3.horizontal.decrease.circle")
+                Image(systemName: "line.3.horizontal.decrease")
             }
         }
     }
@@ -191,18 +208,12 @@ struct ScannerView: View {
         let haystack = [
             title(of: device),
             device.name ?? "",
+            device.identity.model ?? "",
+            device.identity.kind.label,
             device.companyName ?? "",
             device.id.uuidString
         ].joined(separator: " ").lowercased()
         return haystack.contains(text)
-    }
-
-    private func deviceWord(_ count: Int) -> String {
-        if count == 1 { return "urządzenie" }
-        let lastTwo = count % 100
-        let last = count % 10
-        if (2...4).contains(last) && !(12...14).contains(lastTwo) { return "urządzenia" }
-        return "urządzeń"
     }
 
     private func openSettings() {
@@ -219,20 +230,17 @@ struct DeviceRow: View {
 
     var body: some View {
         let stale = device.isStale()
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Color.accentColor.opacity(stale ? 0.06 : 0.14))
-                    .frame(width: 40, height: 40)
-                Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(stale ? Color.secondary : Color.accentColor)
-            }
+        HStack(spacing: 14) {
+            Image(systemName: device.identity.kind.symbol)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(stale ? Color.secondary : Color.accentColor)
+                .frame(width: 44, height: 44)
+                .glassCircle(tint: Color.accentColor.opacity(stale ? 0.04 : 0.14))
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
                     Text(nickname ?? device.displayName)
-                        .font(.body.weight(.medium))
+                        .font(.body.weight(.semibold))
                         .foregroundStyle(device.hasName || nickname != nil ? Color.primary : Color.secondary)
                         .lineLimit(1)
                     if pinned {
@@ -242,9 +250,9 @@ struct DeviceRow: View {
                     }
                 }
                 Text(details)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
 
             Spacer(minLength: 8)
@@ -256,36 +264,23 @@ struct DeviceRow: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+        .glassCard(radius: 22, interactive: true)
         .opacity(stale ? 0.6 : 1)
     }
 
     private var details: String {
         var parts: [String] = []
-        if let company = device.companyName, device.hasName || nickname != nil {
+        if let model = device.identity.model, model != (nickname ?? device.displayName) {
+            parts.append(model)
+        } else if let company = device.companyName {
             parts.append(company)
+        } else if device.identity.kind != .unknown {
+            parts.append(device.identity.kind.label)
         }
         parts.append(device.isStale() ? device.lastSeen.shortAgo : device.distanceDescription)
-        if !device.isConnectable {
-            parts.append("tylko rozgłasza")
-        }
         return parts.joined(separator: " · ")
-    }
-
-    private var icon: String {
-        let name = (nickname ?? device.name ?? "").lowercased()
-        if name.contains("airpods") || name.contains("buds") || name.contains("headphone") || name.contains("słuch") { return "headphones" }
-        if name.contains("watch") || name.contains("band") || name.contains("mi smart") { return "applewatch" }
-        if name.contains("keyboard") || name.contains("klawiat") || name.contains("keys") { return "keyboard" }
-        if name.contains("ruuvi") || name.contains("thermo") || name.contains("termo") { return "thermometer.medium" }
-        if name.contains("mouse") || name.contains("mysz") { return "computermouse" }
-        if name.contains("tv") { return "tv" }
-        if name.contains("speaker") || name.contains("jbl") || name.contains("sonos") { return "hifispeaker" }
-        if name.contains("iphone") || name.contains("phone") { return "iphone" }
-        if name.contains("mac") || name.contains("laptop") { return "laptopcomputer" }
-        if name.contains("tag") || name.contains("tile") { return "tag" }
-        if name.contains("bulb") || name.contains("light") || name.contains("lamp") { return "lightbulb" }
-        if device.companyID == 0x004C { return "apple.logo" }
-        return "wave.3.right"
     }
 }

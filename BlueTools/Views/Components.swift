@@ -1,5 +1,140 @@
 import SwiftUI
 
+extension Color {
+    static let mint1 = Color(red: 0.13, green: 0.83, blue: 0.66)
+    static let ocean = Color(red: 0.08, green: 0.40, blue: 0.88)
+}
+
+struct AppBackground: View {
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        ZStack {
+            (scheme == .dark ? Color(red: 0.02, green: 0.06, blue: 0.09) : Color(red: 0.93, green: 0.97, blue: 0.98))
+            Circle()
+                .fill(Color.mint1.opacity(scheme == .dark ? 0.32 : 0.38))
+                .frame(width: 420, height: 420)
+                .blur(radius: 90)
+                .offset(x: -150, y: -300)
+            Circle()
+                .fill(Color.ocean.opacity(scheme == .dark ? 0.38 : 0.30))
+                .frame(width: 460, height: 460)
+                .blur(radius: 100)
+                .offset(x: 170, y: 260)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+struct GlassCard: ViewModifier {
+    var radius: CGFloat = 24
+    var tint: Color?
+    var interactive = false
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(glass, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+        } else {
+            content
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 0.5))
+        }
+    }
+
+    @available(iOS 26.0, *)
+    private var glass: Glass {
+        var value = Glass.regular
+        if let tint { value = value.tint(tint) }
+        if interactive { value = value.interactive() }
+        return value
+    }
+}
+
+struct GlassCircle: ViewModifier {
+    var tint: Color?
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(tint.map { Glass.regular.tint($0) } ?? .regular, in: Circle())
+        } else {
+            content.background(.ultraThinMaterial, in: Circle())
+        }
+    }
+}
+
+struct GlassButton: ViewModifier {
+    var prominent = false
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            if prominent {
+                content.buttonStyle(.glassProminent)
+            } else {
+                content.buttonStyle(.glass)
+            }
+        } else {
+            if prominent {
+                content.buttonStyle(.borderedProminent)
+            } else {
+                content.buttonStyle(.bordered)
+            }
+        }
+    }
+}
+
+struct GlassGroup<Content: View>: View {
+    var spacing: CGFloat = 12
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: spacing) { content }
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    func glassCard(radius: CGFloat = 24, tint: Color? = nil, interactive: Bool = false) -> some View {
+        modifier(GlassCard(radius: radius, tint: tint, interactive: interactive))
+    }
+
+    func glassCircle(tint: Color? = nil) -> some View {
+        modifier(GlassCircle(tint: tint))
+    }
+
+    func glassButton(prominent: Bool = false) -> some View {
+        modifier(GlassButton(prominent: prominent))
+    }
+}
+
+struct CardSection<Content: View>: View {
+    let title: String
+    var trailing: AnyView?
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Text(title)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                Spacer()
+                trailing
+            }
+            .padding(.horizontal, 6)
+            VStack(alignment: .leading, spacing: 0) {
+                content
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassCard()
+        }
+    }
+}
+
 struct SignalBars: View {
     let level: Int
     var dimmed: Bool = false
@@ -13,13 +148,13 @@ struct SignalBars: View {
             }
         }
         .accessibilityElement()
-        .accessibilityLabel("Sygnał \(level) na 4")
+        .accessibilityLabel("Signal \(level) of 4")
     }
 
     private var barColor: Color {
         if dimmed { return .secondary }
         switch level {
-        case 4, 3: return .green
+        case 4, 3: return .mint1
         case 2: return .orange
         default: return .red
         }
@@ -29,14 +164,20 @@ struct SignalBars: View {
 struct Pill: View {
     let text: String
     var color: Color = .accentColor
+    var symbol: String?
 
     var body: some View {
-        Text(text)
-            .font(.caption2.weight(.semibold))
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .foregroundStyle(color)
-            .background(color.opacity(0.12), in: Capsule())
+        HStack(spacing: 4) {
+            if let symbol {
+                Image(systemName: symbol)
+            }
+            Text(text)
+        }
+        .font(.caption.weight(.semibold))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .foregroundStyle(color)
+        .glassCard(radius: 100, tint: color.opacity(0.15))
     }
 }
 
@@ -50,8 +191,10 @@ struct EmptyStateView: View {
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: icon)
-                .font(.system(size: 44, weight: .light))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 40, weight: .medium))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 88, height: 88)
+                .glassCircle()
             Text(title)
                 .font(.title3.weight(.semibold))
             Text(message)
@@ -61,7 +204,7 @@ struct EmptyStateView: View {
                 .frame(maxWidth: 300)
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
-                    .buttonStyle(.borderedProminent)
+                    .glassButton(prominent: true)
                     .padding(.top, 4)
             }
         }
@@ -77,12 +220,12 @@ struct PulseDot: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(active ? Color.green.opacity(0.35) : Color.clear)
+                .fill(active ? Color.mint1.opacity(0.4) : Color.clear)
                 .frame(width: 14, height: 14)
-                .scaleEffect(animate ? 1.6 : 0.8)
+                .scaleEffect(animate ? 1.8 : 0.8)
                 .opacity(animate ? 0 : 1)
             Circle()
-                .fill(active ? Color.green : Color.secondary)
+                .fill(active ? Color.mint1 : Color.secondary)
                 .frame(width: 8, height: 8)
         }
         .onAppear { restart() }
@@ -95,5 +238,19 @@ struct PulseDot: View {
         withAnimation(.easeOut(duration: 1.4).repeatForever(autoreverses: false)) {
             animate = true
         }
+    }
+}
+
+struct Toast: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.subheadline.weight(.medium))
+            .lineLimit(2)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .glassCard(radius: 100)
+            .padding(.horizontal, 24)
     }
 }

@@ -14,15 +14,14 @@ ipa = f"{base}/download/v{version}/BlueTools.ipa"
 tint = "266EF5"
 
 description = (
-    "Skaner Bluetooth LE na iPhone'a. Pokazuje urządzenia w pobliżu, pozwala się z nimi połączyć, "
-    "czytać i zapisywać charakterystyki, a w trybie szukania prowadzi do zgubionej słuchawki albo kluczy. "
-    "Otwarty kod, bez reklam i bez analityki."
+    "A Bluetooth LE scanner for iPhone. See what's broadcasting around you, find out what it is, "
+    "point yourself toward it and talk to it with ready-made commands. Open source, no ads, no tracking."
 )
 
 source = {
     "name": "BlueTools",
     "identifier": "io.github.onlinekot.bluetools.source",
-    "subtitle": "Narzędzia Bluetooth LE na iPhone'a",
+    "subtitle": "Bluetooth LE tools for iPhone",
     "description": description,
     "iconURL": icon,
     "website": f"https://github.com/{repo}",
@@ -33,7 +32,7 @@ source = {
             "name": "BlueTools",
             "bundleIdentifier": "io.github.onlinekot.bluetools",
             "developerName": "OnlineKot",
-            "subtitle": "Skaner i tester Bluetooth LE",
+            "subtitle": "Scan, identify and find BLE devices",
             "localizedDescription": description,
             "iconURL": icon,
             "tintColor": tint,
@@ -58,7 +57,7 @@ source = {
             "appPermissions": {
                 "entitlements": [],
                 "privacy": {
-                    "NSBluetoothAlwaysUsageDescription": "BlueTools potrzebuje Bluetooth, żeby znaleźć urządzenia w pobliżu i się z nimi połączyć."
+                    "NSBluetoothAlwaysUsageDescription": "BlueTools uses Bluetooth to find devices around you and connect to them."
                 },
             },
         }

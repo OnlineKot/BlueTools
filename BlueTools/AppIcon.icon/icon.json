@@ -1,16 +1,16 @@
 {
   "fill": {
     "linear-gradient": [
-      "srgb:0.09412,0.78431,1.00000,1.00000",
-      "srgb:0.54118,0.20392,0.98039,1.00000"
+      "srgb:0.12941,0.83137,0.65882,1.00000",
+      "srgb:0.08235,0.39608,0.87843,1.00000"
     ],
     "orientation": {
       "start": {
-        "x": 0.3,
+        "x": 0.35,
         "y": 0.0
       },
       "stop": {
-        "x": 0.7,
+        "x": 0.65,
         "y": 1.0
       }
     }
@@ -19,26 +19,8 @@
     {
       "layers": [
         {
-          "image-name": "waves.svg",
-          "name": "waves",
-          "glass": true,
-          "opacity": 0.85
-        }
-      ],
-      "shadow": {
-        "kind": "neutral",
-        "opacity": 0.5
-      },
-      "translucency": {
-        "enabled": true,
-        "value": 0.35
-      }
-    },
-    {
-      "layers": [
-        {
-          "image-name": "wrench.svg",
-          "name": "wrench",
+          "image-name": "dots.svg",
+          "name": "dots",
           "glass": true
         }
       ],
@@ -48,7 +30,31 @@
       },
       "translucency": {
         "enabled": true,
-        "value": 0.2
+        "value": 0.15
+      }
+    },
+    {
+      "layers": [
+        {
+          "image-name": "core.svg",
+          "name": "core",
+          "glass": true,
+          "opacity": 0.55
+        },
+        {
+          "image-name": "beam.svg",
+          "name": "beam",
+          "glass": true,
+          "opacity": 0.35
+        }
+      ],
+      "shadow": {
+        "kind": "layer-color",
+        "opacity": 0.4
+      },
+      "translucency": {
+        "enabled": true,
+        "value": 0.5
       }
     }
   ],

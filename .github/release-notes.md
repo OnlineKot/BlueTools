@@ -1,3 +1,6 @@
-- Aktualizacje prosto z aplikacji: BlueTools sam sprawdza, czy jest nowa wersja, i pokazuje, co się zmieniło.
-- Źródło dla SideStore i LiveContainer, dodawane jednym kliknięciem.
-- Nowa sekcja w ustawieniach z przyciskami instalacji i adresem źródła do skopiowania.
+- Points you toward a device: turn around once and an arrow shows where the signal is strongest.
+- Recognizes far more devices: 4000+ manufacturers, AirPods and Beats models with battery, AirTags and Find My accessories, Galaxy SmartTags, Tile, Swift Pair, Fast Pair, iBeacon and Eddystone.
+- Ready-made commands: ring a tag, read battery, sync the clock, live heart rate, sensors, UART text and more. Save your own commands too.
+- Liquid Glass design and a new icon.
+- English interface.
+- Update checks inside the app and a source for SideStore and LiveContainer.

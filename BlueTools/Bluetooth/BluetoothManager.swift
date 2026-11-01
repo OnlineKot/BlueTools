@@ -25,6 +25,7 @@ final class BluetoothManager: NSObject, ObservableObject {
     private var peripherals: [UUID: CBPeripheral] = [:]
     private var sessions: [UUID: PeripheralSession] = [:]
     private var refreshTimer: AnyCancellable?
+    let rssiSamples = PassthroughSubject<(UUID, Int), Never>()
 
     override init() {
         super.init()
@@ -65,7 +66,7 @@ final class BluetoothManager: NSObject, ObservableObject {
 
     func connect(_ session: PeripheralSession) {
         guard availability == .ready else {
-            session.markFailed("Bluetooth nie jest gotowy.")
+            session.markFailed("Bluetooth is not ready.")
             return
         }
         session.markConnecting()
@@ -132,6 +133,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
         let id = peripheral.identifier
         peripherals[id] = peripheral
+        rssiSamples.send((id, RSSI.intValue))
         if var existing = store[id] {
             existing.update(rssi: RSSI.intValue, advertisement: advertisementData, name: peripheral.name)
             store[id] = existing
@@ -145,7 +147,7 @@ extension BluetoothManager: CBCentralManagerDelegate {
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        sessions[peripheral.identifier]?.markFailed(error?.localizedDescription ?? "Nie udało się połączyć.")
+        sessions[peripheral.identifier]?.markFailed(error?.localizedDescription ?? "Could not connect.")
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral, error: Error?) {

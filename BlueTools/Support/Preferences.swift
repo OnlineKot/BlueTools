@@ -9,9 +9,9 @@ enum SortOrder: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .signal: return "Najsilniejszy sygnał"
-        case .name: return "Nazwa"
-        case .recent: return "Najnowsze"
+        case .signal: return "Strongest signal"
+        case .name: return "Name"
+        case .recent: return "Newest"
         }
     }
 }
@@ -28,13 +28,13 @@ enum ValueFormat: String, CaseIterable, Identifiable {
         switch self {
         case .auto: return "Auto"
         case .hex: return "Hex"
-        case .text: return "Tekst"
-        case .decimal: return "Liczby"
+        case .text: return "Text"
+        case .decimal: return "Decimal"
         }
     }
 
     func render(_ data: Data) -> String {
-        if data.isEmpty { return "pusto" }
+        if data.isEmpty { return "empty" }
         switch self {
         case .hex:
             return data.hexString

@@ -36,10 +36,10 @@ extension Data {
 extension Date {
     var shortAgo: String {
         let seconds = Int(Date().timeIntervalSince(self))
-        if seconds < 3 { return "teraz" }
-        if seconds < 60 { return "\(seconds) s temu" }
+        if seconds < 3 { return "just now" }
+        if seconds < 60 { return "\(seconds)s ago" }
         let minutes = seconds / 60
-        if minutes < 60 { return "\(minutes) min temu" }
-        return "\(minutes / 60) h temu"
+        if minutes < 60 { return "\(minutes)m ago" }
+        return "\(minutes / 60)h ago"
     }
 }

@@ -94,7 +94,7 @@ final class UpdateChecker: ObservableObject {
                 presented = info
             }
         } catch {
-            status = manual ? .failed("Nie udało się połączyć z GitHubem. Sprawdź internet i spróbuj jeszcze raz.") : .idle
+            status = manual ? .failed("Couldn't reach GitHub.") : .idle
         }
     }
 

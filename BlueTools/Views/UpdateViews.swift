@@ -11,7 +11,7 @@ struct UpdateSheet: View {
             List {
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Wersja \(info.version)")
+                        Text("Version \(info.version)")
                             .font(.title2.weight(.bold))
                         Text(subtitle)
                             .font(.subheadline)
@@ -21,7 +21,7 @@ struct UpdateSheet: View {
                 }
 
                 if !info.notes.isEmpty {
-                    Section("Co nowego") {
+                    Section("What's new") {
                         Text(markdown(info.notes))
                             .font(.callout)
                     }
@@ -30,31 +30,31 @@ struct UpdateSheet: View {
                 Section {
                     InstallLinks(ipa: info.ipa)
                 } header: {
-                    Text("Zainstaluj")
+                    Text("Install")
                 } footer: {
-                    Text("Jeśli masz już dodane źródło, wystarczy otworzyć SideStore albo LiveContainer i odświeżyć listę.")
+                    Text("If you already added the source, just open SideStore or LiveContainer and refresh.")
                 }
 
                 Section {
-                    Button("Pomiń tę wersję", role: .destructive) {
+                    Button("Skip this version", role: .destructive) {
                         updates.skip(info)
                     }
                 }
             }
-            .navigationTitle("Aktualizacja")
+            .navigationTitle("Update")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Później") { dismiss() }
+                    Button("Later") { dismiss() }
                 }
             }
         }
     }
 
     private var subtitle: String {
-        var text = "Masz \(AppLinks.currentVersion)"
+        var text = "You have \(AppLinks.currentVersion)"
         if let published = info.published {
-            text += ", nowa wyszła \(published.formatted(date: .abbreviated, time: .omitted))"
+            text += ", released \(published.formatted(date: .abbreviated, time: .omitted))"
         }
         return text
     }
@@ -76,20 +76,20 @@ struct InstallLinks: View {
             Button {
                 open(AppLinks.sideStore, name: "SideStore")
             } label: {
-                Label("Otwórz w SideStore", systemImage: "arrow.up.forward.app")
+                Label("Open in SideStore", systemImage: "arrow.up.forward.app")
             }
 
             Button {
                 open(AppLinks.liveContainer, name: "LiveContainer")
             } label: {
-                Label("Otwórz w LiveContainer", systemImage: "arrow.up.forward.app")
+                Label("Open in LiveContainer", systemImage: "arrow.up.forward.app")
             }
 
             if let ipa {
                 Button {
                     ExternalApp.open(ipa)
                 } label: {
-                    Label("Pobierz plik IPA", systemImage: "arrow.down.circle")
+                    Label("Download IPA", systemImage: "arrow.down.circle")
                 }
             }
 
@@ -98,19 +98,19 @@ struct InstallLinks: View {
                 copied = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copied = false }
             } label: {
-                Label(copied ? "Skopiowano" : "Kopiuj adres źródła", systemImage: copied ? "checkmark" : "doc.on.doc")
+                Label(copied ? "Copied" : "Copy source URL", systemImage: copied ? "checkmark" : "doc.on.doc")
             }
         }
         .alert(
-            "Brak aplikacji \(missingApp ?? "")",
+            "\(missingApp ?? "App") not found",
             isPresented: Binding(get: { missingApp != nil }, set: { if !$0 { missingApp = nil } })
         ) {
-            Button("Kopiuj adres") {
+            Button("Copy URL") {
                 UIPasteboard.general.string = AppLinks.sourceString
             }
             Button("OK", role: .cancel) {}
         } message: {
-            Text("Nie udało się jej otworzyć. Możesz skopiować adres źródła i dodać go ręcznie.")
+            Text("Couldn't open it. Copy the source URL and add it by hand.")
         }
     }
 

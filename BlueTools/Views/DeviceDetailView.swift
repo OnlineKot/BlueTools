@@ -4,78 +4,45 @@ import CoreBluetooth
 
 struct DeviceDetailView: View {
     @EnvironmentObject private var bluetooth: BluetoothManager
-    let deviceID: UUID
-
-    var body: some View {
-        if let session = bluetooth.session(for: deviceID) {
-            DeviceDetailContent(deviceID: deviceID, session: session)
-        } else {
-            EmptyStateView(
-                icon: "questionmark.circle",
-                title: "Zniknęło",
-                message: "To urządzenie nie jest już widoczne. Wróć do listy i spróbuj jeszcze raz."
-            )
-        }
-    }
-}
-
-private struct DeviceDetailContent: View {
-    @EnvironmentObject private var bluetooth: BluetoothManager
     @EnvironmentObject private var pins: PinStore
-    @AppStorage(PrefKey.valueFormat) private var valueFormat = ValueFormat.auto
-
     let deviceID: UUID
-    @ObservedObject var session: PeripheralSession
 
     @State private var showFinder = false
     @State private var showRename = false
     @State private var draftName = ""
-    @State private var showLog = false
 
     private var device: DiscoveredDevice? {
         bluetooth.devices.first { $0.id == deviceID } ?? bluetooth.device(with: deviceID)
     }
 
     private var title: String {
-        pins.nickname(for: deviceID) ?? device?.displayName ?? session.peripheral.name ?? "Urządzenie"
+        pins.nickname(for: deviceID) ?? device?.displayName ?? "Device"
     }
 
     var body: some View {
-        List {
-            Section {
-                header
-            }
-            .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
-
-            if let device {
-                advertisementSection(device)
-            }
-
-            servicesSection
-
-            Section {
-                DisclosureGroup(isExpanded: $showLog) {
-                    if session.log.isEmpty {
-                        Text("Na razie cisza.")
-                            .foregroundStyle(.secondary)
+        let session = bluetooth.session(for: deviceID)
+        ZStack {
+            AppBackground()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    header(session)
+                    if let session {
+                        SessionSections(session: session)
                     }
-                    ForEach(session.log) { entry in
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(entry.date, format: .dateTime.hour().minute().second())
-                                .font(.caption.monospacedDigit())
-                                .foregroundStyle(.secondary)
-                            Text(entry.text)
-                                .font(.callout)
-                                .foregroundStyle(color(for: entry.kind))
-                        }
+                    if let device {
+                        identitySection(device)
+                        advertisementSection(device)
                     }
-                } label: {
-                    Label("Dziennik", systemImage: "list.bullet.rectangle")
                 }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 90)
             }
         }
-        .listStyle(.insetGrouped)
+        .overlay(alignment: .bottom) {
+            if let session {
+                ToastHost(session: session)
+            }
+        }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -84,203 +51,367 @@ private struct DeviceDetailContent: View {
                     Button {
                         pins.toggle(deviceID)
                     } label: {
-                        Label(pins.isPinned(deviceID) ? "Odepnij" : "Przypnij", systemImage: "pin")
+                        Label(pins.isPinned(deviceID) ? "Unpin" : "Pin", systemImage: "pin")
                     }
                     Button {
                         draftName = pins.nickname(for: deviceID) ?? ""
                         showRename = true
                     } label: {
-                        Label("Własna nazwa", systemImage: "pencil")
+                        Label("Nickname", systemImage: "pencil")
                     }
                     Button {
                         UIPasteboard.general.string = deviceID.uuidString
                     } label: {
-                        Label("Kopiuj identyfikator", systemImage: "doc.on.doc")
+                        Label("Copy identifier", systemImage: "doc.on.doc")
                     }
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    Image(systemName: "ellipsis")
                 }
             }
         }
         .sheet(isPresented: $showFinder) {
             FinderView(deviceID: deviceID, title: title)
         }
-        .alert("Własna nazwa", isPresented: $showRename) {
-            TextField("np. Klucze, Rower, Głośnik w kuchni", text: $draftName)
-            Button("Zapisz") { pins.setNickname(draftName, for: deviceID) }
-            Button("Anuluj", role: .cancel) {}
+        .alert("Nickname", isPresented: $showRename) {
+            TextField("Keys, bike, kitchen speaker…", text: $draftName)
+            Button("Save") { pins.setNickname(draftName, for: deviceID) }
+            Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Widoczna tylko u ciebie. Zostaw puste, żeby wrócić do oryginalnej.")
+            Text("Only you see it. Leave it empty to use the original name.")
         }
     }
 
-    private var header: some View {
-        VStack(spacing: 14) {
+    private func header(_ session: PeripheralSession?) -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: device?.identity.kind.symbol ?? "dot.radiowaves.right")
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 84, height: 84)
+                .glassCircle(tint: Color.accentColor.opacity(0.18))
+
             VStack(spacing: 4) {
                 Text(title)
                     .font(.title2.weight(.bold))
                     .multilineTextAlignment(.center)
-                if let company = device?.companyName {
-                    Text(company)
+                if let subtitle {
+                    Text(subtitle)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                stateLabel
-                    .padding(.top, 2)
             }
 
-            HStack(spacing: 20) {
-                stat(value: rssiText, label: "dBm")
-                Divider().frame(height: 30)
-                stat(value: device?.distanceDescription ?? "?", label: "odległość")
-                Divider().frame(height: 30)
-                stat(value: device.map { "\($0.packets)" } ?? "?", label: "pakietów")
+            if let session {
+                SessionStatePill(session: session, connectable: device?.isConnectable ?? true)
+            } else if device?.isConnectable == false {
+                Pill(text: "Broadcast only", color: .secondary, symbol: "dot.radiowaves.forward")
             }
 
-            HStack(spacing: 10) {
-                connectButton
-                Button {
-                    showFinder = true
-                } label: {
-                    Label("Szukaj", systemImage: "location.viewfinder")
-                        .frame(maxWidth: .infinity)
+            HStack(spacing: 0) {
+                stat(rssiText, "dBm")
+                stat(device?.distanceDescription ?? "?", "distance")
+                stat(device.map { "\($0.packets)" } ?? "?", "packets")
+            }
+
+            GlassGroup(spacing: 10) {
+                HStack(spacing: 10) {
+                    if let session {
+                        ConnectButton(session: session, connectable: device?.isConnectable ?? true)
+                    }
+                    Button {
+                        showFinder = true
+                    } label: {
+                        Label("Find", systemImage: "location.north.line.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .glassButton(prominent: session == nil || device?.isConnectable == false)
+                    .controlSize(.large)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
             }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(20)
+        .glassCard(radius: 30)
+    }
+
+    private var subtitle: String? {
+        guard let device else { return nil }
+        var parts: [String] = []
+        if let model = device.identity.model, model != title { parts.append(model) }
+        if let company = device.companyName { parts.append(company) }
+        if parts.isEmpty, device.identity.kind != .unknown { parts.append(device.identity.kind.label) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    private var rssiText: String {
+        if let device { return "\(device.rssi)" }
+        return "?"
+    }
+
+    private func stat(_ value: String, _ label: String) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.headline.monospacedDigit())
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder
-    private var connectButton: some View {
-        if session.isConnected {
-            Button(role: .destructive) {
-                session.disconnect()
-            } label: {
-                Label("Rozłącz", systemImage: "xmark.circle")
-                    .frame(maxWidth: .infinity)
+    private func identitySection(_ device: DiscoveredDevice) -> some View {
+        CardSection(title: "Identified") {
+            InfoRow(label: "Type", value: device.identity.kind.label)
+            if let model = device.identity.model {
+                Divider().padding(.vertical, 8)
+                InfoRow(label: "Model", value: model)
             }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-        } else {
-            Button {
-                session.connect()
-            } label: {
-                Group {
-                    if session.isBusy {
-                        ProgressView()
-                    } else {
-                        Label("Połącz", systemImage: "link")
-                    }
-                }
-                .frame(maxWidth: .infinity)
+            if let company = device.companyName, let id = device.companyID {
+                Divider().padding(.vertical, 8)
+                InfoRow(label: "Manufacturer", value: "\(company) (0x\(String(format: "%04X", Int(id))))")
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(session.isBusy || device?.isConnectable == false)
-        }
-    }
-
-    @ViewBuilder
-    private var stateLabel: some View {
-        switch session.state {
-        case .idle:
-            if device?.isConnectable == false {
-                Pill(text: "Tylko rozgłasza, nie da się połączyć", color: .secondary)
-            } else {
-                Pill(text: "Niepołączone", color: .secondary)
+            ForEach(device.identity.details, id: \.self) { detail in
+                Divider().padding(.vertical, 8)
+                InfoRow(label: "Detail", value: detail)
             }
-        case .connecting:
-            Pill(text: "Łączę…", color: .orange)
-        case .connected:
-            Pill(text: "Połączone", color: .green)
-        case .disconnected(let reason):
-            Pill(text: reason == nil ? "Rozłączone" : "Połączenie zerwane", color: .secondary)
-        case .failed:
-            Pill(text: "Nie udało się połączyć", color: .red)
+            if !device.serviceUUIDs.isEmpty {
+                Divider().padding(.vertical, 8)
+                InfoRow(label: "Advertised services", value: device.serviceUUIDs.map { KnownIDs.serviceName($0) ?? $0.uuidString }.joined(separator: "\n"))
+            }
         }
-    }
-
-    private var rssiText: String {
-        if let live = session.liveRSSI { return "\(live)" }
-        if let device { return "\(device.rssi)" }
-        return "?"
-    }
-
-    private func stat(value: String, label: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.headline.monospacedDigit())
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .frame(minWidth: 70)
     }
 
     private func advertisementSection(_ device: DiscoveredDevice) -> some View {
-        Section("Rozgłaszanie") {
-            InfoRow(label: "Identyfikator", value: device.id.uuidString, mono: true)
-            if let name = device.name {
-                InfoRow(label: "Nazwa", value: name)
-            }
-            InfoRow(label: "Można połączyć", value: device.isConnectable ? "Tak" : "Nie")
+        CardSection(title: "Advertisement") {
+            InfoRow(label: "Identifier", value: device.id.uuidString, mono: true)
+            Divider().padding(.vertical, 8)
+            InfoRow(label: "Connectable", value: device.isConnectable ? "Yes" : "No")
             if let tx = device.txPower {
-                InfoRow(label: "Moc nadawania", value: "\(tx) dBm")
+                Divider().padding(.vertical, 8)
+                InfoRow(label: "TX power", value: "\(tx) dBm")
             }
             if let data = device.manufacturerData {
-                InfoRow(label: "Dane producenta", value: data.hexString, mono: true)
+                Divider().padding(.vertical, 8)
+                InfoRow(label: "Manufacturer data", value: data.hexString, mono: true)
             }
-            if !device.serviceUUIDs.isEmpty {
-                InfoRow(
-                    label: "Ogłaszane usługi",
-                    value: device.serviceUUIDs.map { KnownIDs.serviceName($0) ?? $0.uuidString }.joined(separator: "\n"),
-                    mono: true
-                )
+            ForEach(Array(device.serviceData.keys), id: \.self) { key in
+                Divider().padding(.vertical, 8)
+                InfoRow(label: "Service data \(key.uuidString)", value: device.serviceData[key]?.hexString ?? "", mono: true)
             }
-            InfoRow(label: "Pierwszy raz", value: device.firstSeen.formatted(date: .omitted, time: .standard))
+            Divider().padding(.vertical, 8)
+            InfoRow(label: "First seen", value: device.firstSeen.formatted(date: .omitted, time: .standard))
+        }
+    }
+}
+
+private struct SessionStatePill: View {
+    @ObservedObject var session: PeripheralSession
+    let connectable: Bool
+
+    var body: some View {
+        switch session.state {
+        case .idle:
+            if connectable {
+                Pill(text: "Not connected", color: .secondary, symbol: "link")
+            } else {
+                Pill(text: "Broadcast only", color: .secondary, symbol: "dot.radiowaves.forward")
+            }
+        case .connecting:
+            Pill(text: "Connecting", color: .orange, symbol: "hourglass")
+        case .connected:
+            Pill(text: "Connected", color: .mint1, symbol: "checkmark.circle.fill")
+        case .disconnected(let reason):
+            Pill(text: reason == nil ? "Disconnected" : "Connection lost", color: .secondary, symbol: "link.badge.plus")
+        case .failed:
+            Pill(text: "Couldn't connect", color: .red, symbol: "exclamationmark.triangle.fill")
+        }
+    }
+}
+
+private struct ConnectButton: View {
+    @ObservedObject var session: PeripheralSession
+    let connectable: Bool
+
+    var body: some View {
+        Group {
+            if session.isConnected {
+                Button(role: .destructive) {
+                    session.disconnect()
+                } label: {
+                    Label("Disconnect", systemImage: "xmark")
+                        .frame(maxWidth: .infinity)
+                }
+                .glassButton()
+            } else {
+                Button {
+                    session.connect()
+                } label: {
+                    Group {
+                        if session.isBusy {
+                            ProgressView()
+                        } else {
+                            Label("Connect", systemImage: "link")
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .glassButton(prominent: true)
+                .disabled(session.isBusy || !connectable)
+            }
+        }
+        .controlSize(.large)
+    }
+}
+
+private struct ToastHost: View {
+    @ObservedObject var session: PeripheralSession
+
+    var body: some View {
+        Group {
+            if let text = session.toast {
+                Toast(text: text)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .task(id: text) {
+                        try? await Task.sleep(nanoseconds: 2_600_000_000)
+                        withAnimation { session.toast = nil }
+                    }
+            }
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: session.toast)
+        .padding(.bottom, 16)
+    }
+}
+
+private struct SessionSections: View {
+    @ObservedObject var session: PeripheralSession
+    @EnvironmentObject private var customCommands: CustomCommandStore
+    @AppStorage(PrefKey.valueFormat) private var valueFormat = ValueFormat.auto
+
+    @State private var prompting: DeviceCommand?
+    @State private var promptText = ""
+    @State private var showLog = false
+
+    private var commands: [DeviceCommand] {
+        CommandLibrary.all.filter { $0.isAvailable(in: session) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            if session.isConnected {
+                if session.services.isEmpty {
+                    HStack(spacing: 12) {
+                        ProgressView()
+                        Text("Asking the device what it can do…")
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .glassCard()
+                } else {
+                    commandsSection
+                }
+            }
+
+            ForEach(session.services, id: \.self) { service in
+                CardSection(title: PeripheralSession.name(of: service)) {
+                    let characteristics = service.characteristics ?? []
+                    if characteristics.isEmpty {
+                        Text("No characteristics")
+                            .foregroundStyle(.secondary)
+                    }
+                    ForEach(characteristics, id: \.self) { characteristic in
+                        if characteristic != characteristics.first { Divider().padding(.vertical, 8) }
+                        NavigationLink {
+                            CharacteristicView(session: session, characteristic: characteristic)
+                        } label: {
+                            CharacteristicRow(
+                                characteristic: characteristic,
+                                value: session.value(for: characteristic),
+                                notifying: session.isNotifying(characteristic),
+                                format: valueFormat
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+
+            if !session.log.isEmpty {
+                CardSection(title: "Log") {
+                    DisclosureGroup(isExpanded: $showLog) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(session.log.prefix(80)) { entry in
+                                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                    Text(entry.date, format: .dateTime.hour().minute().second())
+                                        .font(.caption.monospacedDigit())
+                                        .foregroundStyle(.secondary)
+                                    Text(entry.text)
+                                        .font(.callout)
+                                        .foregroundStyle(color(for: entry.kind))
+                                }
+                            }
+                        }
+                        .padding(.top, 8)
+                    } label: {
+                        Text(session.log.first?.text ?? "")
+                            .font(.callout)
+                            .lineLimit(1)
+                    }
+                }
+            }
+        }
+        .alert(prompting?.title ?? "", isPresented: Binding(get: { prompting != nil }, set: { if !$0 { prompting = nil } })) {
+            TextField(placeholder, text: $promptText)
+            Button("Send") {
+                if let command = prompting {
+                    session.run(command, input: promptText)
+                }
+                promptText = ""
+            }
+            Button("Cancel", role: .cancel) { promptText = "" }
         }
     }
 
-    @ViewBuilder
-    private var servicesSection: some View {
-        if session.isConnected && session.services.isEmpty {
-            Section("Usługi") {
-                HStack {
-                    ProgressView()
-                    Text("Pytam urządzenie, co potrafi…")
-                        .foregroundStyle(.secondary)
-                        .padding(.leading, 6)
-                }
-            }
-        }
-        ForEach(session.services, id: \.self) { service in
-            Section {
-                let characteristics = service.characteristics ?? []
-                if characteristics.isEmpty {
-                    Text("Brak charakterystyk")
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(characteristics, id: \.self) { characteristic in
-                    NavigationLink {
-                        CharacteristicView(session: session, characteristic: characteristic)
-                    } label: {
-                        CharacteristicRow(
-                            characteristic: characteristic,
-                            value: session.value(for: characteristic),
-                            notifying: session.isNotifying(characteristic),
-                            format: valueFormat
-                        )
-                    }
-                }
-            } header: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(PeripheralSession.name(of: service))
-                    if KnownIDs.serviceName(service.uuid) != nil {
-                        Text(service.uuid.uuidString)
-                            .font(.caption2.monospaced())
-                            .textCase(nil)
+    private var placeholder: String {
+        if case .prompt(let text, _) = prompting?.action { return text }
+        return ""
+    }
+
+    private var commandsSection: some View {
+        let custom = customCommands.commands(for: session)
+        return CardSection(title: "Commands") {
+            if commands.isEmpty && custom.isEmpty {
+                Text("No ready-made commands for this device yet. Open a characteristic to send your own and save it as a command.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            } else {
+                GlassGroup(spacing: 8) {
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                        ForEach(commands) { command in
+                            CommandChip(title: command.title, symbol: command.symbol) {
+                                if case .prompt = command.action {
+                                    prompting = command
+                                } else {
+                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                    session.run(command)
+                                }
+                            }
+                        }
+                        ForEach(custom) { command in
+                            CommandChip(title: command.name, symbol: "star.fill") {
+                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                                session.run(command)
+                            }
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    customCommands.remove(command)
+                                } label: {
+                                    Label("Delete command", systemImage: "trash")
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -290,9 +421,38 @@ private struct DeviceDetailContent: View {
     private func color(for kind: LogEntry.Kind) -> Color {
         switch kind {
         case .info: return .primary
-        case .success: return .green
+        case .success: return .mint1
         case .error: return .red
         }
+    }
+}
+
+struct CommandChip: View {
+    let title: String
+    let symbol: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 20)
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+            .contentShape(Rectangle())
+            .glassCard(radius: 16, tint: Color.accentColor.opacity(0.08), interactive: true)
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -310,7 +470,7 @@ struct InfoRow: View {
                 .font(mono ? .callout.monospaced() : .callout)
                 .textSelection(.enabled)
         }
-        .padding(.vertical, 1)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -321,41 +481,45 @@ struct CharacteristicRow: View {
     let format: ValueFormat
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack {
-                Text(PeripheralSession.name(of: characteristic))
-                    .font(.callout.weight(.medium))
-                    .lineLimit(1)
-                if notifying {
-                    Image(systemName: "waveform")
-                        .font(.caption)
-                        .foregroundStyle(.green)
+        HStack {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 6) {
+                    Text(PeripheralSession.name(of: characteristic))
+                        .font(.callout.weight(.semibold))
+                        .lineLimit(1)
+                    if notifying {
+                        Image(systemName: "waveform")
+                            .font(.caption)
+                            .foregroundStyle(Color.mint1)
+                    }
                 }
-            }
-            if let value {
-                Text(format.render(value))
-                    .font(.caption.monospaced())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-            }
-            HStack(spacing: 4) {
-                ForEach(PropertyBadge.badges(for: characteristic.properties), id: \.self) { badge in
-                    Pill(text: badge, color: .accentColor)
+                if let value {
+                    Text(ValueDecoder.decode(characteristic.uuid, value) ?? format.render(value))
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
                 }
+                Text(PropertyBadge.badges(for: characteristic.properties).joined(separator: " · "))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
         }
-        .padding(.vertical, 2)
+        .contentShape(Rectangle())
     }
 }
 
 enum PropertyBadge {
     static func badges(for properties: CBCharacteristicProperties) -> [String] {
         var result: [String] = []
-        if properties.contains(.read) { result.append("odczyt") }
-        if properties.contains(.write) { result.append("zapis") }
-        if properties.contains(.writeWithoutResponse) { result.append("zapis bez odp.") }
-        if properties.contains(.notify) { result.append("powiadomienia") }
-        if properties.contains(.indicate) { result.append("indykacje") }
+        if properties.contains(.read) { result.append("read") }
+        if properties.contains(.write) { result.append("write") }
+        if properties.contains(.writeWithoutResponse) { result.append("write without response") }
+        if properties.contains(.notify) { result.append("notify") }
+        if properties.contains(.indicate) { result.append("indicate") }
         return result
     }
 }

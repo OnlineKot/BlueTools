@@ -4,6 +4,7 @@ struct SettingsView: View {
     @EnvironmentObject private var bluetooth: BluetoothManager
     @EnvironmentObject private var pins: PinStore
     @EnvironmentObject private var updates: UpdateChecker
+    @EnvironmentObject private var customCommands: CustomCommandStore
 
     @AppStorage(PrefKey.hideUnnamed) private var hideUnnamed = false
     @AppStorage(PrefKey.minimumRSSI) private var minimumRSSI = -100.0
@@ -11,45 +12,59 @@ struct SettingsView: View {
     @AppStorage(PrefKey.haptics) private var haptics = true
     @AppStorage(PrefKey.autoUpdates) private var autoUpdates = true
 
-    private var version: String {
-        "\(AppLinks.currentVersion) (\(AppLinks.currentBuild))"
-    }
-
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    Toggle("Ukryj urządzenia bez nazwy", isOn: $hideUnnamed)
+                    Toggle("Hide unnamed devices", isOn: $hideUnnamed)
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text("Najsłabszy sygnał")
+                            Text("Weakest signal")
                             Spacer()
-                            Text(minimumRSSI <= -100 ? "bez limitu" : "\(Int(minimumRSSI)) dBm")
+                            Text(minimumRSSI <= -100 ? "No limit" : "\(Int(minimumRSSI)) dBm")
                                 .foregroundStyle(.secondary)
                                 .monospacedDigit()
                         }
                         Slider(value: $minimumRSSI, in: -100...(-40), step: 5)
                     }
                 } header: {
-                    Text("Lista")
+                    Text("List")
                 } footer: {
-                    Text("Wokół zwykle kręci się sporo anonimowych urządzeń. Suwak odsiewa te najdalsze, przypięte zostają zawsze.")
+                    Text("There are usually lots of anonymous devices around. The slider hides the farthest ones. Pinned devices always stay.")
                 }
 
-                Section {
-                    Picker("Pokazuj wartości jako", selection: $valueFormat) {
+                Section("Connections") {
+                    Picker("Show values as", selection: $valueFormat) {
                         ForEach(ValueFormat.allCases) { format in
                             Text(format.title).tag(format)
                         }
                     }
-                    Toggle("Wibracje przy szukaniu", isOn: $haptics)
-                } header: {
-                    Text("Połączenia")
+                    Toggle("Haptics while finding", isOn: $haptics)
+                }
+
+                if !customCommands.commands.isEmpty {
+                    Section {
+                        ForEach(customCommands.commands) { command in
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(command.name)
+                                Text(command.hex)
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .onDelete { offsets in
+                            offsets.map { customCommands.commands[$0] }.forEach(customCommands.remove)
+                        }
+                    } header: {
+                        Text("Your commands")
+                    } footer: {
+                        Text("Swipe to delete. Save new ones from any characteristic you can write to.")
+                    }
                 }
 
                 Section {
                     HStack {
-                        Text("Stan")
+                        Text("Status")
                         Spacer()
                         if updates.status == .checking {
                             ProgressView()
@@ -58,77 +73,60 @@ struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-
                     if let info = updates.available {
-                        Button {
+                        Button("Install version \(info.version)") {
                             updates.presented = info
-                        } label: {
-                            Text("Zainstaluj wersję \(info.version)")
-                                .fontWeight(.semibold)
                         }
+                        .fontWeight(.semibold)
                     } else {
-                        Button {
+                        Button("Check now") {
                             Task { await updates.check(manual: true) }
-                        } label: {
-                            Text("Sprawdź teraz")
                         }
                         .disabled(updates.status == .checking)
                     }
-                    Toggle("Sprawdzaj przy starcie", isOn: $autoUpdates)
+                    Toggle("Check on launch", isOn: $autoUpdates)
                 } header: {
-                    Text("Aktualizacje")
+                    Text("Updates")
                 } footer: {
-                    Text("Apka pyta GitHuba tylko o numer najnowszej wersji. Nic o tobie ani o twoich urządzeniach nie wychodzi z telefonu.")
+                    Text("BlueTools only asks GitHub for the latest version number. Nothing about you or your devices leaves the phone.")
                 }
 
                 Section {
                     InstallLinks()
                 } header: {
-                    Text("Źródło aplikacji")
+                    Text("App source")
                 } footer: {
-                    Text("Po dodaniu źródła SideStore i LiveContainer same dadzą znać, kiedy wyjdzie nowa wersja.")
+                    Text("Add the source once and SideStore or LiveContainer will tell you when there's a new version.")
                 }
 
-                Section("Twoje dane") {
-                    HStack {
-                        Text("Przypięte urządzenia")
-                        Spacer()
-                        Text("\(pins.pinned.count)")
-                            .foregroundStyle(.secondary)
-                    }
-                    Button("Wyczyść listę urządzeń") {
+                Section("Your data") {
+                    LabeledContent("Pinned devices", value: "\(pins.pinned.count)")
+                    Button("Clear device list") {
                         bluetooth.clear()
                     }
                 }
 
                 Section {
-                    HStack {
-                        Text("Wersja")
-                        Spacer()
-                        Text(version)
-                            .foregroundStyle(.secondary)
-                    }
+                    LabeledContent("Version", value: "\(AppLinks.currentVersion) (\(AppLinks.currentBuild))")
+                    LabeledContent("Known manufacturers", value: "\(KnownIDs.companyCount)")
                     Link(destination: AppLinks.repository) {
                         HStack {
-                            Text("Kod źródłowy")
+                            Text("Source code")
                             Spacer()
                             Image(systemName: "arrow.up.right")
                                 .font(.caption)
                         }
                     }
-                    HStack {
-                        Text("Licencja")
-                        Spacer()
-                        Text("GPL-3.0")
-                            .foregroundStyle(.secondary)
-                    }
+                    LabeledContent("License", value: "GPL-3.0")
                 } header: {
-                    Text("O aplikacji")
+                    Text("About")
                 } footer: {
-                    Text("Bez reklam, bez analityki, bez kont. Wszystko, co zobaczysz przez Bluetooth, zostaje na telefonie.")
+                    Text("No ads, no analytics, no accounts. Everything BlueTools sees over Bluetooth stays on your phone.")
                 }
             }
-            .navigationTitle("Ustawienia")
+            .scrollContentBackground(.hidden)
+            .background(AppBackground())
+            .navigationTitle("Settings")
         }
     }
 
@@ -136,15 +134,15 @@ struct SettingsView: View {
     private var updateStatus: some View {
         switch updates.status {
         case .idle:
-            Text("Nie sprawdzano")
+            Text("Not checked")
         case .checking:
-            Text("Sprawdzam…")
+            Text("Checking…")
         case .upToDate:
-            Text("Aktualna")
+            Text("Up to date")
         case .available(let info):
-            Text("Jest \(info.version)")
+            Text("\(info.version) available")
         case .failed:
-            Text("Brak połączenia")
+            Text("Offline")
         }
     }
 }

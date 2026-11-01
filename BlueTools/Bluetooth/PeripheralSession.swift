@@ -46,6 +46,9 @@ final class PeripheralSession: NSObject, ObservableObject {
     @Published private(set) var log: [LogEntry] = []
     @Published private(set) var liveRSSI: Int?
     @Published private(set) var lastError: String?
+    @Published var toast: String?
+
+    private var pendingReads: Set<ObjectIdentifier> = []
 
     private var rssiTimer: Timer?
 
@@ -75,7 +78,7 @@ final class PeripheralSession: NSObject, ObservableObject {
     func markConnecting() {
         state = .connecting
         lastError = nil
-        addLog("Łączenie…", .info)
+        addLog("Connecting…", .info)
     }
 
     func markFailed(_ message: String) {
@@ -87,7 +90,7 @@ final class PeripheralSession: NSObject, ObservableObject {
     func didConnect() {
         state = .connected
         peripheral.delegate = self
-        addLog("Połączono", .success)
+        addLog("Connected", .success)
         peripheral.discoverServices(nil)
         startRSSIUpdates()
     }
@@ -98,12 +101,12 @@ final class PeripheralSession: NSObject, ObservableObject {
         notifying.removeAll()
         if let error {
             state = .disconnected(error.localizedDescription)
-            addLog("Rozłączono: \(error.localizedDescription)", .error)
+            addLog("Disconnected: \(error.localizedDescription)", .error)
         } else if case .disconnected = state {
             return
         } else {
             state = .disconnected(nil)
-            addLog("Rozłączono", .info)
+            addLog("Disconnected", .info)
         }
     }
 
@@ -125,7 +128,7 @@ final class PeripheralSession: NSObject, ObservableObject {
         peripheral.writeValue(data, for: characteristic, type: type)
         appendHistory(data, for: characteristic, direction: .sent)
         if type == .withoutResponse {
-            addLog("Wysłano \(data.count) B do \(Self.name(of: characteristic))", .info)
+            addLog("Sent \(data.count) B to \(Self.name(of: characteristic))", .info)
         }
     }
 
@@ -139,6 +142,77 @@ final class PeripheralSession: NSObject, ObservableObject {
 
     func isNotifying(_ characteristic: CBCharacteristic) -> Bool {
         notifying.contains(ObjectIdentifier(characteristic))
+    }
+
+    func run(_ command: DeviceCommand, input: String? = nil) {
+        guard isConnected else { return }
+        switch command.action {
+        case .read:
+            if let target = command.target(in: self) { requestRead(target) }
+        case .readMany(let uuids):
+            for uuid in uuids {
+                if let target = characteristic(uuid, in: command.service), target.properties.contains(.read) {
+                    requestRead(target)
+                }
+            }
+        case .subscribe:
+            guard let target = command.target(in: self) else { return }
+            let wasOn = isNotifying(target)
+            peripheral.setNotifyValue(!wasOn, for: target)
+            toast = wasOn ? "Stopped listening" : "Listening…"
+        case .write(let data):
+            guard let target = command.target(in: self) else { return }
+            write(data, to: target)
+            toast = command.title
+        case .writeNow(let make):
+            guard let target = command.target(in: self) else { return }
+            write(make(), to: target)
+            toast = command.title
+        case .prompt(_, let appendNewline):
+            guard let input, !input.isEmpty, let target = command.target(in: self) else { return }
+            var data = Data(input.utf8)
+            if appendNewline { data.append(0x0A) }
+            write(data, to: target)
+            toast = "Sent \(data.count) bytes"
+        case .readAll:
+            let readable = allCharacteristics.filter { $0.properties.contains(.read) }
+            readable.forEach(requestRead)
+            toast = "Reading \(readable.count) values"
+        case .subscribeAll:
+            let targets = allCharacteristics.filter {
+                ($0.properties.contains(.notify) || $0.properties.contains(.indicate)) && !isNotifying($0)
+            }
+            targets.forEach { peripheral.setNotifyValue(true, for: $0) }
+            toast = "Listening to \(targets.count) values"
+        }
+    }
+
+    func run(_ command: CustomCommand) {
+        guard isConnected, let target = characteristic(CBUUID(string: command.characteristic)), let data = Data(hex: command.hex) else { return }
+        write(data, to: target)
+        toast = command.name
+    }
+
+    private func requestRead(_ characteristic: CBCharacteristic) {
+        pendingReads.insert(ObjectIdentifier(characteristic))
+        peripheral.readValue(for: characteristic)
+    }
+
+    func characteristic(_ uuid: CBUUID, in service: CBUUID? = nil) -> CBCharacteristic? {
+        for item in services where service == nil || item.uuid == service {
+            if let match = item.characteristics?.first(where: { $0.uuid == uuid }) {
+                return match
+            }
+        }
+        return nil
+    }
+
+    var allCharacteristics: [CBCharacteristic] {
+        services.flatMap { $0.characteristics ?? [] }
+    }
+
+    func note(_ text: String, success: Bool = true) {
+        addLog(text, success ? .success : .error)
     }
 
     func clearHistory(for characteristic: CBCharacteristic) {
@@ -188,12 +262,12 @@ final class PeripheralSession: NSObject, ObservableObject {
 extension PeripheralSession: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         if let error {
-            addLog("Błąd usług: \(error.localizedDescription)", .error)
+            addLog("Service discovery failed: \(error.localizedDescription)", .error)
             return
         }
         let found = peripheral.services ?? []
         services = found
-        addLog("Znaleziono usługi: \(found.count)", .info)
+        addLog("Found \(found.count) services", .info)
         for service in found {
             peripheral.discoverCharacteristics(nil, for: service)
         }
@@ -201,7 +275,7 @@ extension PeripheralSession: CBPeripheralDelegate {
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         if let error {
-            addLog("Błąd charakterystyk: \(error.localizedDescription)", .error)
+            addLog("Characteristic discovery failed: \(error.localizedDescription)", .error)
             return
         }
         objectWillChange.send()
@@ -217,36 +291,43 @@ extension PeripheralSession: CBPeripheralDelegate {
             return
         }
         guard let data = characteristic.value else { return }
-        values[ObjectIdentifier(characteristic)] = data
+        let key = ObjectIdentifier(characteristic)
+        values[key] = data
         appendHistory(data, for: characteristic, direction: .received)
+        if pendingReads.remove(key) != nil {
+            let text = ValueDecoder.decode(characteristic.uuid, data) ?? data.readableText ?? data.hexString
+            addLog("\(Self.name(of: characteristic)): \(text)", .success)
+            toast = "\(Self.name(of: characteristic)): \(text)"
+        }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: Error?) {
         if let error {
-            addLog("Zapis nieudany: \(error.localizedDescription)", .error)
+            addLog("Write failed: \(error.localizedDescription)", .error)
         } else {
-            addLog("Zapisano do \(Self.name(of: characteristic))", .success)
+            addLog("Wrote to \(Self.name(of: characteristic))", .success)
         }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
         let key = ObjectIdentifier(characteristic)
         if let error {
-            addLog("Powiadomienia: \(error.localizedDescription)", .error)
+            addLog("Notifications: \(error.localizedDescription)", .error)
             return
         }
         if characteristic.isNotifying {
             notifying.insert(key)
-            addLog("Słucham: \(Self.name(of: characteristic))", .info)
+            addLog("Listening to \(Self.name(of: characteristic))", .info)
         } else {
             notifying.remove(key)
-            addLog("Koniec słuchania: \(Self.name(of: characteristic))", .info)
+            addLog("Stopped listening to \(Self.name(of: characteristic))", .info)
         }
     }
 
     func peripheral(_ peripheral: CBPeripheral, didReadRSSI RSSI: NSNumber, error: Error?) {
         guard error == nil else { return }
         liveRSSI = RSSI.intValue
+        manager?.rssiSamples.send((peripheral.identifier, RSSI.intValue))
     }
 
     func peripheralDidUpdateName(_ peripheral: CBPeripheral) {
