@@ -80,18 +80,25 @@ enum CommandLibrary {
 
     static func currentTime() -> Data {
         let calendar = Calendar(identifier: .gregorian)
-        let now = Date()
-        let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second, .weekday, .nanosecond], from: now)
-        let year = UInt16(parts.year ?? 2026)
-        let weekday = UInt8(((parts.weekday ?? 1) + 5) % 7 + 1)
-        let fraction = UInt8(min(255, Double(parts.nanosecond ?? 0) / 1_000_000_000 * 256))
-        return Data([
-            UInt8(year & 0xFF), UInt8(year >> 8),
-            UInt8(parts.month ?? 1), UInt8(parts.day ?? 1),
-            UInt8(parts.hour ?? 0), UInt8(parts.minute ?? 0), UInt8(parts.second ?? 0),
-            weekday, fraction, 0x01
-        ])
+        let parts = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second, .weekday, .nanosecond], from: Date())
+        let year: Int = parts.year ?? 2026
+        let weekday: Int = ((parts.weekday ?? 1) + 5) % 7 + 1
+        let nanos: Double = Double(parts.nanosecond ?? 0)
+        let fraction: Int = min(255, Int(nanos / 1_000_000_000 * 256))
+        var bytes: [UInt8] = []
+        bytes.append(UInt8(year & 0xFF))
+        bytes.append(UInt8((year >> 8) & 0xFF))
+        bytes.append(UInt8(parts.month ?? 1))
+        bytes.append(UInt8(parts.day ?? 1))
+        bytes.append(UInt8(parts.hour ?? 0))
+        bytes.append(UInt8(parts.minute ?? 0))
+        bytes.append(UInt8(parts.second ?? 0))
+        bytes.append(UInt8(weekday))
+        bytes.append(UInt8(fraction))
+        bytes.append(0x01)
+        return Data(bytes)
     }
+}
 }
 
 struct CustomCommand: Identifiable, Codable, Equatable {
