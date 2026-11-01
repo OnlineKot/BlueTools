@@ -57,6 +57,8 @@ open BlueTools.xcodeproj
 
 Ustaw swój zespół w *Signing & Capabilities* i uruchom na telefonie. Symulator nie ma Bluetooth, ale po dodaniu argumentu `-demo` przy uruchomieniu apka pokaże przykładowe urządzenia. Tak powstają zrzuty ekranu wyżej.
 
+Ikona jest w dwóch wersjach: `BlueTools/AppIcon.icon` to warstwy dla Icon Composera (na iOS 26 system nakłada na nie Liquid Glass), a PNG w `Assets.xcassets` służy starszym systemom. Obie generuje `python3 scripts/make_icon.py` (potrzebuje `cairosvg`, `shapely` i `Pillow`).
+
 `.xcodeproj` nie jest trzymany w repo. Generuje go XcodeGen z `project.yml`, więc nie ma konfliktów w `project.pbxproj`.
 
 ## Wydania

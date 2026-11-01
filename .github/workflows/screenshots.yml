@@ -23,6 +23,12 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
 
+      - name: Select Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+          xcodebuild -version
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
@@ -41,6 +47,7 @@ jobs:
       - name: Build for simulator
         run: |
           xcodegen generate
+          grep -m1 'AppIcon.icon' BlueTools.xcodeproj/project.pbxproj
           xcodebuild \
             -project BlueTools.xcodeproj \
             -scheme BlueTools \
@@ -72,6 +79,13 @@ jobs:
           shoot list dark list-dark
           shoot finder light finder
           shoot settings light settings
+          xcrun simctl terminate "$UDID" "$BUNDLE" || true
+          xcrun simctl ui "$UDID" appearance light
+          sleep 3
+          xcrun simctl io "$UDID" screenshot docs/screenshots/home.png
+          sips -Z 1200 docs/screenshots/home.png > /dev/null
+          cp "$(ls "$APP"/AppIcon*.png | sort | tail -1)" docs/screenshots/icon-rendered.png || true
+          ls "$APP"
           ls -lh docs/screenshots
 
       - name: Commit screenshots
