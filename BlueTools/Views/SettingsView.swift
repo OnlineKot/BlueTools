@@ -3,17 +3,16 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject private var bluetooth: BluetoothManager
     @EnvironmentObject private var pins: PinStore
+    @EnvironmentObject private var updates: UpdateChecker
 
     @AppStorage(PrefKey.hideUnnamed) private var hideUnnamed = false
     @AppStorage(PrefKey.minimumRSSI) private var minimumRSSI = -100.0
     @AppStorage(PrefKey.valueFormat) private var valueFormat = ValueFormat.auto
     @AppStorage(PrefKey.haptics) private var haptics = true
+    @AppStorage(PrefKey.autoUpdates) private var autoUpdates = true
 
     private var version: String {
-        let info = Bundle.main.infoDictionary
-        let short = info?["CFBundleShortVersionString"] as? String ?? "?"
-        let build = info?["CFBundleVersion"] as? String ?? "?"
-        return "\(short) (\(build))"
+        "\(AppLinks.currentVersion) (\(AppLinks.currentBuild))"
     }
 
     var body: some View {
@@ -48,6 +47,55 @@ struct SettingsView: View {
                     Text("Połączenia")
                 }
 
+                Section {
+                    HStack(spacing: 14) {
+                        AppIconBadge(size: 48)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("BlueTools \(AppLinks.currentVersion)")
+                                .font(.headline)
+                            updateStatus
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if updates.status == .checking {
+                            ProgressView()
+                        }
+                    }
+                    .padding(.vertical, 4)
+
+                    if let info = updates.available {
+                        Button {
+                            updates.presented = info
+                        } label: {
+                            Label("Zainstaluj wersję \(info.version)", systemImage: "arrow.down.app.fill")
+                                .font(.body.weight(.semibold))
+                        }
+                    } else {
+                        Button {
+                            Task { await updates.check(manual: true) }
+                        } label: {
+                            Label("Sprawdź teraz", systemImage: "arrow.clockwise")
+                        }
+                        .disabled(updates.status == .checking)
+                    }
+                    Toggle("Sprawdzaj przy starcie", isOn: $autoUpdates)
+                } header: {
+                    Text("Aktualizacje")
+                } footer: {
+                    Text("Apka pyta tylko GitHuba o numer najnowszej wersji. Nic o tobie ani o twoich urządzeniach nie wychodzi z telefonu.")
+                }
+
+                Section {
+                    InstallButtons(ipa: nil, page: AppLinks.releases)
+                        .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
+                        .listRowBackground(Color.clear)
+                } header: {
+                    Text("Źródło aplikacji")
+                } footer: {
+                    Text("Po dodaniu źródła SideStore i LiveContainer same pokażą, kiedy wyjdzie nowa wersja.")
+                }
+
                 Section("Twoje dane") {
                     HStack {
                         Text("Przypięte urządzenia")
@@ -67,7 +115,7 @@ struct SettingsView: View {
                         Text(version)
                             .foregroundStyle(.secondary)
                     }
-                    Link(destination: URL(string: "https://github.com/OnlineKot/BlueTools")!) {
+                    Link(destination: AppLinks.repository) {
                         HStack {
                             Text("Kod źródłowy")
                             Spacer()
@@ -84,10 +132,27 @@ struct SettingsView: View {
                 } header: {
                     Text("O aplikacji")
                 } footer: {
-                    Text("BlueTools nic nie wysyła do internetu. Bez reklam, bez analityki, bez kont. Wszystko zostaje na telefonie.")
+                    Text("Bez reklam, bez analityki, bez kont. Wszystko, co zobaczysz przez Bluetooth, zostaje na telefonie.")
                 }
             }
             .navigationTitle("Ustawienia")
+        }
+    }
+
+    @ViewBuilder
+    private var updateStatus: some View {
+        switch updates.status {
+        case .idle:
+            Text("Kompilacja \(AppLinks.currentBuild)")
+        case .checking:
+            Text("Sprawdzam…")
+        case .upToDate:
+            Text("Masz najnowszą wersję")
+        case .available(let info):
+            Text("Dostępna wersja \(info.version)")
+                .foregroundStyle(Color.accentColor)
+        case .failed(let message):
+            Text(message)
         }
     }
 }

@@ -22,6 +22,15 @@ jobs:
       - name: Generate project
         run: xcodegen generate
 
+      - name: Version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "APP_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "APP_VERSION=$(grep MARKETING_VERSION project.yml | head -1 | sed -E 's/.*"(.*)".*/\1/')" >> "$GITHUB_ENV"
+          fi
+          echo "BUILD_NUMBER=${{ github.run_number }}" >> "$GITHUB_ENV"
+
       - name: Build
         run: |
           xcodebuild \
@@ -34,6 +43,8 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
+            MARKETING_VERSION="$APP_VERSION" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
             build > build.log 2>&1 || { grep -E "error:" build.log; tail -n 30 build.log; exit 1; }
           grep -E "warning:" build.log | sort -u || true
           test -f build/Build/Products/Release-iphoneos/BlueTools.app/BlueTools
@@ -56,9 +67,22 @@ jobs:
           name: build-log
           path: build.log
 
+      - name: Source for SideStore and LiveContainer
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          python3 scripts/make_source.py "$APP_VERSION" BlueTools.ipa .github/release-notes.md source.json
+          cp BlueTools/Assets.xcassets/AppIcon.appiconset/icon.png icon.png
+          cp .github/assets/banner.png banner.png
+
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: BlueTools.ipa
-          generate_release_notes: true
+          name: BlueTools ${{ env.APP_VERSION }}
+          body_path: .github/release-notes.md
+          make_latest: true
+          files: |
+            BlueTools.ipa
+            source.json
+            icon.png
+            banner.png

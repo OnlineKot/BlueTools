@@ -56,4 +56,5 @@ enum PrefKey {
     static let sortOrder = "sortOrder"
     static let valueFormat = "valueFormat"
     static let haptics = "haptics"
+    static let autoUpdates = "autoUpdates"
 }
