@@ -99,7 +99,6 @@ enum CommandLibrary {
         return Data(bytes)
     }
 }
-}
 
 struct CustomCommand: Identifiable, Codable, Equatable {
     var id = UUID()
