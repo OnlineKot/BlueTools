@@ -45,6 +45,8 @@ You can also open any characteristic, send your own bytes and save them as a com
 
 **And the basics:** signal and distance for everything nearby, pinning and nicknames, raw advertisement data, a log of everything you sent and received, and value decoding so you see `87%` and `72 bpm` instead of hex.
 
+**Updates itself.** Every time you open BlueTools it asks GitHub for the latest release. If there's a newer one, it counts down from 3, hands the new IPA to the installer you picked (SideStore, LiveContainer, AltStore, TrollStore, Feather, or just Safari) and closes itself so the installer can swap it out. That works inside LiveContainer too. You can turn the automatic part off and get a list to pick from instead, or cancel the countdown.
+
 ## Install
 
 You need iOS 16 or newer. On iOS 26 the app and its icon use Liquid Glass.
