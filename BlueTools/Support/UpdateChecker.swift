@@ -7,6 +7,7 @@ enum AppLinks {
     static let latestRelease = URL(string: "https://api.github.com/repos/OnlineKot/BlueTools/releases/latest")!
     static let sourceString = "https://github.com/OnlineKot/BlueTools/releases/latest/download/source.json"
     static let source = URL(string: sourceString)!
+    static let latestIPA = URL(string: "https://github.com/OnlineKot/BlueTools/releases/latest/download/BlueTools.ipa")!
 
     static var sideStore: URL {
         URL(string: "sidestore://source?url=\(sourceString)")!
@@ -45,6 +46,33 @@ final class UpdateChecker: ObservableObject {
 
     @Published private(set) var status: Status = .idle
     @Published var presented: ReleaseInfo?
+    @Published var countdown: Countdown?
+    @Published var missingInstaller: Installer?
+
+    struct Countdown: Equatable {
+        let info: ReleaseInfo
+        let installer: Installer
+        var seconds: Int
+    }
+
+    func install(_ info: ReleaseInfo, with installer: Installer) {
+        let ipa = info.ipa ?? AppLinks.latestIPA
+        guard let url = installer.url(ipa: ipa) else { return }
+        countdown = nil
+        ExternalApp.openAndQuit(url) { [weak self] in
+            DispatchQueue.main.async { self?.missingInstaller = installer }
+        }
+    }
+
+    func tick() {
+        guard var current = countdown else { return }
+        current.seconds -= 1
+        if current.seconds <= 0 {
+            install(current.info, with: current.installer)
+        } else {
+            countdown = current
+        }
+    }
 
     private let lastCheckKey = "lastUpdateCheck"
     private let skippedKey = "skippedVersion"
@@ -57,7 +85,7 @@ final class UpdateChecker: ObservableObject {
     func checkOnLaunch(enabled: Bool) {
         guard enabled else { return }
         let last = UserDefaults.standard.double(forKey: lastCheckKey)
-        guard Date().timeIntervalSince1970 - last > 6 * 3600 else { return }
+        guard Date().timeIntervalSince1970 - last > 600 else { return }
         Task { await check(manual: false) }
     }
 
@@ -85,12 +113,18 @@ final class UpdateChecker: ObservableObject {
                 version: version,
                 notes: payload.body?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
                 page: payload.htmlURL,
-                ipa: payload.assets.first { $0.name.lowercased().hasSuffix(".ipa") }?.browserDownloadURL,
+                ipa: payload.assets.first { $0.name.lowercased().hasSuffix(".ipa") }?.browserDownloadURL ?? AppLinks.latestIPA,
                 published: payload.publishedAt
             )
             status = .available(info)
             let skipped = UserDefaults.standard.string(forKey: skippedKey)
-            if manual || skipped != version {
+            guard manual || skipped != version else { return }
+            let defaults = UserDefaults.standard
+            let auto = defaults.object(forKey: PrefKey.autoInstall) as? Bool ?? true
+            let installer = Installer(rawValue: defaults.string(forKey: PrefKey.installer) ?? "") ?? Installer.suggested
+            if auto && !manual && installer != .ask {
+                countdown = Countdown(info: info, installer: installer, seconds: 3)
+            } else {
                 presented = info
             }
         } catch {
@@ -158,5 +192,96 @@ private extension JSONDecoder {
 enum ExternalApp {
     static func open(_ url: URL, completion: @escaping (Bool) -> Void = { _ in }) {
         UIApplication.shared.open(url, options: [:], completionHandler: completion)
+    }
+
+    static func openAndQuit(_ url: URL, failed: @escaping () -> Void) {
+        UIApplication.shared.open(url, options: [:]) { ok in
+            guard ok else {
+                failed()
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                exit(0)
+            }
+        }
+    }
+
+    static var isInsideLiveContainer: Bool {
+        let path = Bundle.main.bundlePath
+        let env = ProcessInfo.processInfo.environment
+        return path.contains("/Documents/Applications/") || env.keys.contains { $0.hasPrefix("LC_") }
+    }
+}
+
+enum Installer: String, CaseIterable, Identifiable {
+    case ask
+    case sideStore
+    case liveContainer
+    case altStore
+    case trollStore
+    case feather
+    case safari
+
+    var id: String { rawValue }
+
+    static var choices: [Installer] { allCases.filter { $0 != .ask } }
+
+    static var suggested: Installer {
+        ExternalApp.isInsideLiveContainer ? .liveContainer : .ask
+    }
+
+    var title: String {
+        switch self {
+        case .ask: return "Ask every time"
+        case .sideStore: return "SideStore"
+        case .liveContainer: return "LiveContainer"
+        case .altStore: return "AltStore"
+        case .trollStore: return "TrollStore"
+        case .feather: return "Feather"
+        case .safari: return "Download IPA in Safari"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .ask: return "Show the list when an update is out"
+        case .sideStore: return "Installs the new IPA directly"
+        case .liveContainer: return "Installs the new IPA into LiveContainer"
+        case .altStore: return "Installs the new IPA directly"
+        case .trollStore: return "Installs permanently, no refresh needed"
+        case .feather: return "Adds the BlueTools source"
+        case .safari: return "Save the file and install it however you like"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .ask: return "questionmark.circle"
+        case .sideStore: return "s.circle.fill"
+        case .liveContainer: return "shippingbox.fill"
+        case .altStore: return "a.circle.fill"
+        case .trollStore: return "t.circle.fill"
+        case .feather: return "leaf.fill"
+        case .safari: return "safari.fill"
+        }
+    }
+
+    func url(ipa: URL) -> URL? {
+        func scheme(_ name: String, _ host: String, _ value: String) -> URL? {
+            var components = URLComponents()
+            components.scheme = name
+            components.host = host
+            components.queryItems = [URLQueryItem(name: "url", value: value)]
+            return components.url
+        }
+        switch self {
+        case .ask: return nil
+        case .sideStore: return scheme("sidestore", "install", ipa.absoluteString)
+        case .liveContainer: return scheme("livecontainer", "install", ipa.absoluteString)
+        case .altStore: return scheme("altstore", "install", ipa.absoluteString)
+        case .trollStore: return scheme("apple-magnifier", "install", ipa.absoluteString)
+        case .feather: return URL(string: "feather://source/\(AppLinks.sourceString)")
+        case .safari: return ipa
+        }
     }
 }

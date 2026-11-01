@@ -11,6 +11,8 @@ struct SettingsView: View {
     @AppStorage(PrefKey.valueFormat) private var valueFormat = ValueFormat.auto
     @AppStorage(PrefKey.haptics) private var haptics = true
     @AppStorage(PrefKey.autoUpdates) private var autoUpdates = true
+    @AppStorage(PrefKey.autoInstall) private var autoInstall = true
+    @AppStorage(PrefKey.installer) private var installer = Installer.suggested.rawValue
 
     var body: some View {
         NavigationStack {
@@ -84,19 +86,26 @@ struct SettingsView: View {
                         }
                         .disabled(updates.status == .checking)
                     }
-                    Toggle("Check on launch", isOn: $autoUpdates)
+                    Toggle("Check automatically", isOn: $autoUpdates)
+                    Toggle("Install automatically", isOn: $autoInstall)
+                        .disabled(!autoUpdates)
+                    Picker("Install with", selection: $installer) {
+                        ForEach(Installer.allCases) { option in
+                            Label(option.title, systemImage: option.symbol).tag(option.rawValue)
+                        }
+                    }
                 } header: {
                     Text("Updates")
                 } footer: {
-                    Text("BlueTools only asks GitHub for the latest version number. Nothing about you or your devices leaves the phone.")
+                    Text("BlueTools asks GitHub for the latest version when you open it. With automatic install on, it counts down from 3, opens your installer and closes itself so the new version can go in. Nothing about you or your devices leaves the phone.")
                 }
 
                 Section {
                     InstallLinks()
                 } header: {
-                    Text("App source")
+                    Text("Get the latest version")
                 } footer: {
-                    Text("Add the source once and SideStore or LiveContainer will tell you when there's a new version.")
+                    Text("Source URL for SideStore, LiveContainer, AltStore and Feather: \(AppLinks.sourceString)")
                 }
 
                 Section("Your data") {

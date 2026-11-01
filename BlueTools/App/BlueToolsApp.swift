@@ -35,6 +35,7 @@ struct RootView: View {
 
     @EnvironmentObject private var updates: UpdateChecker
     @EnvironmentObject private var bluetooth: BluetoothManager
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage(PrefKey.autoUpdates) private var autoUpdates = true
     @State private var tab: Tab = DemoData.screen == "settings" ? .settings : .nearby
     @State private var demoFinder = DemoData.screen == "finder"
@@ -50,10 +51,34 @@ struct RootView: View {
                 .tag(Tab.settings)
         }
         .modifier(GlassTabBar())
+        .overlay(alignment: .top) {
+            if let countdown = updates.countdown {
+                UpdateCountdownBanner(countdown: countdown)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.45, dampingFraction: 0.85), value: updates.countdown)
+        .onChange(of: scenePhase) { phase in
+            if phase == .active && !DemoData.isEnabled {
+                updates.checkOnLaunch(enabled: autoUpdates)
+            }
+        }
         .onAppear {
             if !DemoData.isEnabled {
                 updates.checkOnLaunch(enabled: autoUpdates)
             }
+        }
+        .alert(
+            "\(updates.missingInstaller?.title ?? "That app") isn't installed",
+            isPresented: Binding(get: { updates.missingInstaller != nil }, set: { if !$0 { updates.missingInstaller = nil } })
+        ) {
+            Button("Download IPA instead") {
+                updates.missingInstaller = nil
+                ExternalApp.open(updates.available?.ipa ?? AppLinks.latestIPA)
+            }
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Pick another installer, or grab the IPA in Safari.")
         }
         .sheet(item: $updates.presented) { info in
             UpdateSheet(info: info)

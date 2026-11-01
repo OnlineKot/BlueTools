@@ -57,4 +57,6 @@ enum PrefKey {
     static let valueFormat = "valueFormat"
     static let haptics = "haptics"
     static let autoUpdates = "autoUpdates"
+    static let autoInstall = "autoInstall"
+    static let installer = "installer"
 }

@@ -5,7 +5,6 @@ import sys
 from io import BytesIO
 
 import cairosvg
-import numpy
 from PIL import Image, ImageChops, ImageFilter
 from shapely import affinity
 from shapely.geometry import Point, Polygon
@@ -13,8 +12,9 @@ from shapely.ops import unary_union
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
 SIZE = 1024
-TOP = (33, 212, 168)
-BOTTOM = (21, 101, 224)
+BACKGROUND = (12, 30, 44)
+BEAM = (40, 200, 190)
+TARGET = (90, 235, 190)
 
 
 def sector(origin, radius, center, half, rounding):
@@ -66,12 +66,17 @@ def color(rgb):
 
 
 def background():
-    y, x = numpy.mgrid[0:SIZE, 0:SIZE] / (SIZE - 1)
-    t = numpy.clip((x - 0.5) * 0.3 + (y - 0.5) * 0.95 + 0.5, 0, 1)
-    grad = Image.fromarray((t * 255).astype("uint8"), "L")
-    top = Image.new("RGB", (SIZE, SIZE), TOP)
-    bottom = Image.new("RGB", (SIZE, SIZE), BOTTOM)
-    return Image.composite(bottom, top, grad).convert("RGBA")
+    return Image.new("RGBA", (SIZE, SIZE), BACKGROUND + (255,))
+
+
+def tinted(alpha, rgb, opacity):
+    layer = glass_layer(alpha, opacity)
+    colored = Image.new("RGBA", (SIZE, SIZE), rgb + (255,))
+    colored.putalpha(layer.split()[3])
+    rim = layer.copy()
+    rim.putalpha(ImageChops.subtract(layer.split()[3], alpha.point(lambda v: int(v * opacity))))
+    colored.alpha_composite(rim)
+    return colored
 
 
 def glass_layer(alpha, opacity):
@@ -96,8 +101,7 @@ def shadow(alpha, strength):
 
 
 beam, core, source, target = build()
-dots = unary_union([source, target])
-files = {"beam.svg": svg(beam), "core.svg": svg(core), "dots.svg": svg(dots)}
+files = {"beam.svg": svg(beam), "core.svg": svg(core), "source.svg": svg(source), "target.svg": svg(target)}
 
 icon_dir = os.path.join(ROOT, "BlueTools", "AppIcon.icon")
 assets = os.path.join(icon_dir, "Assets")
@@ -108,23 +112,28 @@ for name, text in files.items():
     with open(os.path.join(assets, name), "w") as handle:
         handle.write(text)
 
+
+def solid(rgb):
+    return {"linear-gradient": [color(rgb), color(rgb)], "orientation": {"start": {"x": 0.5, "y": 0.0}, "stop": {"x": 0.5, "y": 1.0}}}
+
+
 doc = {
-    "fill": {
-        "linear-gradient": [color(TOP), color(BOTTOM)],
-        "orientation": {"start": {"x": 0.35, "y": 0.0}, "stop": {"x": 0.65, "y": 1.0}},
-    },
+    "fill": solid(BACKGROUND),
     "groups": [
         {
-            "layers": [{"image-name": "dots.svg", "name": "dots", "glass": True}],
-            "shadow": {"kind": "neutral", "opacity": 0.5},
-            "translucency": {"enabled": True, "value": 0.15},
+            "layers": [
+                {"image-name": "target.svg", "name": "target", "glass": True, "fill": solid(TARGET)},
+                {"image-name": "source.svg", "name": "source", "glass": True},
+            ],
+            "shadow": {"kind": "layer-color", "opacity": 0.5},
+            "translucency": {"enabled": True, "value": 0.1},
         },
         {
             "layers": [
-                {"image-name": "core.svg", "name": "core", "glass": True, "opacity": 0.55},
-                {"image-name": "beam.svg", "name": "beam", "glass": True, "opacity": 0.35},
+                {"image-name": "core.svg", "name": "core", "glass": True, "fill": solid(BEAM), "opacity": 0.6},
+                {"image-name": "beam.svg", "name": "beam", "glass": True, "fill": solid(BEAM), "opacity": 0.4},
             ],
-            "shadow": {"kind": "layer-color", "opacity": 0.4},
+            "shadow": {"kind": "layer-color", "opacity": 0.35},
             "translucency": {"enabled": True, "value": 0.5},
         },
     ],
@@ -133,11 +142,13 @@ doc = {
 with open(os.path.join(icon_dir, "icon.json"), "w") as handle:
     json.dump(doc, handle, indent=2)
 
-beam_a, core_a, dots_a = mask(files["beam.svg"]), mask(files["core.svg"]), mask(files["dots.svg"])
+beam_a, core_a, source_a, target_a = (mask(files[n]) for n in ("beam.svg", "core.svg", "source.svg", "target.svg"))
 out = background()
-out.alpha_composite(shadow(beam_a, 0.18))
-out.alpha_composite(glass_layer(beam_a, 0.30))
-out.alpha_composite(glass_layer(core_a, 0.30))
-out.alpha_composite(shadow(dots_a, 0.45))
-out.alpha_composite(glass_layer(dots_a, 0.97))
+out.alpha_composite(shadow(beam_a, 0.15))
+out.alpha_composite(tinted(beam_a, BEAM, 0.35))
+out.alpha_composite(tinted(core_a, BEAM, 0.35))
+out.alpha_composite(shadow(source_a, 0.4))
+out.alpha_composite(shadow(target_a, 0.4))
+out.alpha_composite(glass_layer(source_a, 0.97))
+out.alpha_composite(tinted(target_a, TARGET, 1.0))
 out.convert("RGB").save(os.path.join(ROOT, "BlueTools", "Assets.xcassets", "AppIcon.appiconset", "icon.png"))
