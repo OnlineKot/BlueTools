@@ -48,34 +48,29 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    HStack(spacing: 14) {
-                        AppIconBadge(size: 48)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("BlueTools \(AppLinks.currentVersion)")
-                                .font(.headline)
-                            updateStatus
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                    HStack {
+                        Text("Stan")
                         Spacer()
                         if updates.status == .checking {
                             ProgressView()
+                        } else {
+                            updateStatus
+                                .foregroundStyle(.secondary)
                         }
                     }
-                    .padding(.vertical, 4)
 
                     if let info = updates.available {
                         Button {
                             updates.presented = info
                         } label: {
-                            Label("Zainstaluj wersję \(info.version)", systemImage: "arrow.down.app.fill")
-                                .font(.body.weight(.semibold))
+                            Text("Zainstaluj wersję \(info.version)")
+                                .fontWeight(.semibold)
                         }
                     } else {
                         Button {
                             Task { await updates.check(manual: true) }
                         } label: {
-                            Label("Sprawdź teraz", systemImage: "arrow.clockwise")
+                            Text("Sprawdź teraz")
                         }
                         .disabled(updates.status == .checking)
                     }
@@ -83,17 +78,15 @@ struct SettingsView: View {
                 } header: {
                     Text("Aktualizacje")
                 } footer: {
-                    Text("Apka pyta tylko GitHuba o numer najnowszej wersji. Nic o tobie ani o twoich urządzeniach nie wychodzi z telefonu.")
+                    Text("Apka pyta GitHuba tylko o numer najnowszej wersji. Nic o tobie ani o twoich urządzeniach nie wychodzi z telefonu.")
                 }
 
                 Section {
-                    InstallButtons(ipa: nil, page: AppLinks.releases)
-                        .listRowInsets(EdgeInsets(top: 12, leading: 12, bottom: 12, trailing: 12))
-                        .listRowBackground(Color.clear)
+                    InstallLinks()
                 } header: {
                     Text("Źródło aplikacji")
                 } footer: {
-                    Text("Po dodaniu źródła SideStore i LiveContainer same pokażą, kiedy wyjdzie nowa wersja.")
+                    Text("Po dodaniu źródła SideStore i LiveContainer same dadzą znać, kiedy wyjdzie nowa wersja.")
                 }
 
                 Section("Twoje dane") {
@@ -143,16 +136,15 @@ struct SettingsView: View {
     private var updateStatus: some View {
         switch updates.status {
         case .idle:
-            Text("Kompilacja \(AppLinks.currentBuild)")
+            Text("Nie sprawdzano")
         case .checking:
             Text("Sprawdzam…")
         case .upToDate:
-            Text("Masz najnowszą wersję")
+            Text("Aktualna")
         case .available(let info):
-            Text("Dostępna wersja \(info.version)")
-                .foregroundStyle(Color.accentColor)
-        case .failed(let message):
-            Text(message)
+            Text("Jest \(info.version)")
+        case .failed:
+            Text("Brak połączenia")
         }
     }
 }

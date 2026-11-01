@@ -77,7 +77,6 @@ jobs:
         run: |
           python3 scripts/make_source.py "$APP_VERSION" BlueTools.ipa .github/release-notes.md source.json
           cp BlueTools/Assets.xcassets/AppIcon.appiconset/icon.png icon.png
-          cp .github/assets/banner.png banner.png
 
       - name: Release
         if: env.PUBLISH == 'true'
@@ -92,4 +91,3 @@ jobs:
             BlueTools.ipa
             source.json
             icon.png
-            banner.png

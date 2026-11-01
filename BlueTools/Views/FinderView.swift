@@ -43,7 +43,6 @@ struct FinderView: View {
                     Circle()
                         .fill(ringColor)
                         .frame(width: 40 + 80 * strength, height: 40 + 80 * strength)
-                        .shadow(color: ringColor.opacity(0.5), radius: 18)
                     Text(device.map { "\(Int($0.smoothedRSSI.rounded()))" } ?? "?")
                         .font(.system(size: 34, weight: .bold, design: .rounded).monospacedDigit())
                         .foregroundStyle(.white)

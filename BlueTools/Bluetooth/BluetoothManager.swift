@@ -19,7 +19,8 @@ final class BluetoothManager: NSObject, ObservableObject {
         didSet { applyScanState() }
     }
 
-    private var central: CBCentralManager!
+    private var central: CBCentralManager?
+    let isDemo = DemoData.isEnabled
     private var store: [UUID: DiscoveredDevice] = [:]
     private var peripherals: [UUID: CBPeripheral] = [:]
     private var sessions: [UUID: PeripheralSession] = [:]
@@ -27,7 +28,16 @@ final class BluetoothManager: NSObject, ObservableObject {
 
     override init() {
         super.init()
-        central = CBCentralManager(delegate: self, queue: nil)
+        if isDemo {
+            availability = .ready
+            isScanning = true
+            for device in DemoData.devices() {
+                store[device.id] = device
+            }
+            devices = Array(store.values)
+        } else {
+            central = CBCentralManager(delegate: self, queue: nil)
+        }
         refreshTimer = Timer.publish(every: 0.5, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in self?.publishSnapshot() }
@@ -44,7 +54,7 @@ final class BluetoothManager: NSObject, ObservableObject {
 
     func session(for id: UUID) -> PeripheralSession? {
         if let existing = sessions[id] { return existing }
-        guard let peripheral = peripherals[id] ?? central.retrievePeripherals(withIdentifiers: [id]).first else {
+        guard let central, let peripheral = peripherals[id] ?? central.retrievePeripherals(withIdentifiers: [id]).first else {
             return nil
         }
         peripherals[id] = peripheral
@@ -59,15 +69,19 @@ final class BluetoothManager: NSObject, ObservableObject {
             return
         }
         session.markConnecting()
-        central.connect(session.peripheral, options: nil)
+        central?.connect(session.peripheral, options: nil)
     }
 
     func disconnect(_ session: PeripheralSession) {
-        central.cancelPeripheralConnection(session.peripheral)
+        central?.cancelPeripheralConnection(session.peripheral)
     }
 
     private func applyScanState() {
-        guard availability == .ready else {
+        if isDemo {
+            isScanning = wantsScanning
+            return
+        }
+        guard let central, availability == .ready else {
             isScanning = false
             return
         }
@@ -81,6 +95,11 @@ final class BluetoothManager: NSObject, ObservableObject {
 
     private func publishSnapshot() {
         let now = Date()
+        if isDemo {
+            for id in store.keys {
+                store[id]?.lastSeen = now
+            }
+        }
         store = store.filter { entry in
             now.timeIntervalSince(entry.value.lastSeen) < 90 || sessions[entry.key]?.isConnected == true
         }

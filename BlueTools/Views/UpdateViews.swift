@@ -8,59 +8,55 @@ struct UpdateSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    HStack(spacing: 14) {
-                        AppIconBadge(size: 64)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Jest nowa wersja")
-                                .font(.title2.weight(.bold))
-                            Text("\(AppLinks.currentVersion)  →  \(info.version)")
-                                .font(.subheadline.monospacedDigit())
-                                .foregroundStyle(.secondary)
-                            if let published = info.published {
-                                Text("Wydana \(published.formatted(date: .abbreviated, time: .omitted))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+            List {
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Wersja \(info.version)")
+                            .font(.title2.weight(.bold))
+                        Text(subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
+                    .padding(.vertical, 4)
+                }
 
-                    if !info.notes.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Co nowego")
-                                .font(.headline)
-                            Text(markdown(info.notes))
-                                .font(.callout)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(14)
-                                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        }
+                if !info.notes.isEmpty {
+                    Section("Co nowego") {
+                        Text(markdown(info.notes))
+                            .font(.callout)
                     }
+                }
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Jak zaktualizować")
-                            .font(.headline)
-                        InstallButtons(ipa: info.ipa, page: info.page)
-                    }
+                Section {
+                    InstallLinks(ipa: info.ipa)
+                } header: {
+                    Text("Zainstaluj")
+                } footer: {
+                    Text("Jeśli masz już dodane źródło, wystarczy otworzyć SideStore albo LiveContainer i odświeżyć listę.")
+                }
 
-                    Button("Pomiń tę wersję") {
+                Section {
+                    Button("Pomiń tę wersję", role: .destructive) {
                         updates.skip(info)
                     }
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
                 }
-                .padding(20)
             }
+            .navigationTitle("Aktualizacja")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button("Później") { dismiss() }
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+    }
+
+    private var subtitle: String {
+        var text = "Masz \(AppLinks.currentVersion)"
+        if let published = info.published {
+            text += ", nowa wyszła \(published.formatted(date: .abbreviated, time: .omitted))"
+        }
+        return text
     }
 
     private func markdown(_ text: String) -> AttributedString {
@@ -69,137 +65,58 @@ struct UpdateSheet: View {
     }
 }
 
-struct InstallButtons: View {
+struct InstallLinks: View {
     var ipa: URL?
-    var page: URL?
 
     @State private var missingApp: String?
     @State private var copied = false
 
     var body: some View {
-        VStack(spacing: 10) {
-            InstallRow(
-                title: "SideStore",
-                subtitle: "Dodaj źródło, a aktualizacje przyjdą same",
-                symbol: "plus.app.fill",
-                tint: Color(red: 0.55, green: 0.33, blue: 0.95)
-            ) {
-                ExternalApp.open(AppLinks.sideStore) { ok in
-                    if !ok { missingApp = "SideStore" }
-                }
+        Group {
+            Button {
+                open(AppLinks.sideStore, name: "SideStore")
+            } label: {
+                Label("Otwórz w SideStore", systemImage: "arrow.up.forward.app")
             }
 
-            InstallRow(
-                title: "LiveContainer",
-                subtitle: "Dodaj źródło w LiveContainer",
-                symbol: "shippingbox.fill",
-                tint: Color(red: 0.12, green: 0.62, blue: 0.55)
-            ) {
-                ExternalApp.open(AppLinks.liveContainer) { ok in
-                    if !ok { missingApp = "LiveContainer" }
-                }
+            Button {
+                open(AppLinks.liveContainer, name: "LiveContainer")
+            } label: {
+                Label("Otwórz w LiveContainer", systemImage: "arrow.up.forward.app")
             }
 
             if let ipa {
-                InstallRow(
-                    title: "Pobierz IPA",
-                    subtitle: "Do Sideloadly, TrollStore i innych",
-                    symbol: "arrow.down.circle.fill",
-                    tint: .accentColor
-                ) {
-                    ExternalApp.open(ipa)
-                }
-            }
-
-            HStack(spacing: 10) {
                 Button {
-                    UIPasteboard.general.string = AppLinks.sourceString
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    copied = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copied = false }
+                    ExternalApp.open(ipa)
                 } label: {
-                    Label(copied ? "Skopiowano" : "Kopiuj adres źródła", systemImage: copied ? "checkmark" : "doc.on.doc")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-
-                if let page {
-                    Button {
-                        ExternalApp.open(page)
-                    } label: {
-                        Label("GitHub", systemImage: "safari")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
+                    Label("Pobierz plik IPA", systemImage: "arrow.down.circle")
                 }
             }
-            .font(.subheadline)
+
+            Button {
+                UIPasteboard.general.string = AppLinks.sourceString
+                copied = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copied = false }
+            } label: {
+                Label(copied ? "Skopiowano" : "Kopiuj adres źródła", systemImage: copied ? "checkmark" : "doc.on.doc")
+            }
         }
         .alert(
-            "Nie znalazłem \(missingApp ?? "")",
+            "Brak aplikacji \(missingApp ?? "")",
             isPresented: Binding(get: { missingApp != nil }, set: { if !$0 { missingApp = nil } })
         ) {
-            Button("Kopiuj adres źródła") {
+            Button("Kopiuj adres") {
                 UIPasteboard.general.string = AppLinks.sourceString
             }
             Button("OK", role: .cancel) {}
         } message: {
-            Text("Wygląda na to, że ta aplikacja nie jest zainstalowana. Możesz skopiować adres źródła i wkleić go ręcznie.")
+            Text("Nie udało się jej otworzyć. Możesz skopiować adres źródła i dodać go ręcznie.")
         }
     }
-}
 
-struct InstallRow: View {
-    let title: String
-    let subtitle: String
-    let symbol: String
-    let tint: Color
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 12) {
-                Image(systemName: symbol)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 40, height: 40)
-                    .background(tint.gradient, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.primary)
-                    Text(subtitle)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(12)
-            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    private func open(_ url: URL, name: String) {
+        ExternalApp.open(url) { ok in
+            if !ok { missingApp = name }
         }
-        .buttonStyle(.plain)
-    }
-}
-
-struct AppIconBadge: View {
-    var size: CGFloat = 56
-
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.225, style: .continuous)
-                .fill(LinearGradient(
-                    colors: [Color(red: 0.15, green: 0.43, blue: 0.96), Color(red: 0.08, green: 0.2, blue: 0.59)],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ))
-            Image(systemName: "dot.radiowaves.right")
-                .font(.system(size: size * 0.46, weight: .semibold))
-                .foregroundStyle(.white)
-        }
-        .frame(width: size, height: size)
-        .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
     }
 }

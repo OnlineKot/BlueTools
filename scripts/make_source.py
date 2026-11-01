@@ -25,7 +25,6 @@ source = {
     "subtitle": "Narzędzia Bluetooth LE na iPhone'a",
     "description": description,
     "iconURL": icon,
-    "headerURL": f"{base}/latest/download/banner.png",
     "website": f"https://github.com/{repo}",
     "tintColor": tint,
     "featuredApps": ["io.github.onlinekot.bluetools"],
