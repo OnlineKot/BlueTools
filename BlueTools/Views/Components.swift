@@ -9,20 +9,26 @@ struct AppBackground: View {
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        ZStack {
-            (scheme == .dark ? Color(red: 0.02, green: 0.06, blue: 0.09) : Color(red: 0.93, green: 0.97, blue: 0.98))
-            Circle()
-                .fill(Color.mint1.opacity(scheme == .dark ? 0.32 : 0.38))
-                .frame(width: 420, height: 420)
-                .blur(radius: 90)
-                .offset(x: -150, y: -300)
-            Circle()
-                .fill(Color.ocean.opacity(scheme == .dark ? 0.38 : 0.30))
-                .frame(width: 460, height: 460)
-                .blur(radius: 100)
-                .offset(x: 170, y: 260)
-        }
-        .ignoresSafeArea()
+        Rectangle()
+            .fill(scheme == .dark ? Color(red: 0.02, green: 0.06, blue: 0.09) : Color(red: 0.93, green: 0.97, blue: 0.98))
+            .overlay {
+                GeometryReader { proxy in
+                    let width = proxy.size.width
+                    Circle()
+                        .fill(Color.mint1.opacity(scheme == .dark ? 0.32 : 0.38))
+                        .frame(width: width * 1.05, height: width * 1.05)
+                        .blur(radius: 90)
+                        .position(x: width * 0.12, y: proxy.size.height * 0.08)
+                    Circle()
+                        .fill(Color.ocean.opacity(scheme == .dark ? 0.38 : 0.30))
+                        .frame(width: width * 1.15, height: width * 1.15)
+                        .blur(radius: 100)
+                        .position(x: width * 0.92, y: proxy.size.height * 0.82)
+                }
+            }
+            .clipped()
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
     }
 }
 

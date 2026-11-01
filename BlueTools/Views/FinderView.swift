@@ -69,8 +69,7 @@ struct FinderView: View {
         VStack(spacing: 6) {
             Text(primaryText)
                 .font(.system(.largeTitle, design: .rounded).weight(.bold))
-                .contentTransition(.opacity)
-                .animation(.easeInOut, value: primaryText)
+                .monospacedDigit()
             Text(secondaryText)
                 .font(.callout)
                 .foregroundStyle(.secondary)
