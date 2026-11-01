@@ -77,13 +77,12 @@ struct DiscoveredDevice: Identifiable, Equatable {
     }
 
     var signalLevel: Int {
-        switch smoothedRSSI {
-        case -55...: return 4
-        case -67..<(-55): return 3
-        case -78..<(-67): return 2
-        case -90..<(-78): return 1
-        default: return 0
-        }
+        let value = smoothedRSSI
+        if value >= -55 { return 4 }
+        if value >= -67 { return 3 }
+        if value >= -78 { return 2 }
+        if value >= -90 { return 1 }
+        return 0
     }
 
     var estimatedDistance: Double {

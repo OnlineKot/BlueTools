@@ -93,12 +93,10 @@ struct FinderView: View {
     }
 
     private var ringColor: Color {
-        switch strength {
-        case 0.75...: return .green
-        case 0.5..<0.75: return .mint
-        case 0.3..<0.5: return .orange
-        default: return .red
-        }
+        if strength >= 0.75 { return .green }
+        if strength >= 0.5 { return .mint }
+        if strength >= 0.3 { return .orange }
+        return .red
     }
 
     private var headline: String {

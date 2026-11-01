@@ -24,7 +24,6 @@ jobs:
 
       - name: Build
         run: |
-          set -o pipefail
           xcodebuild \
             -project BlueTools.xcodeproj \
             -scheme BlueTools \
@@ -35,8 +34,9 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            build | tee build.log | grep -E "error:|warning:|BUILD" || true
-          test -d build/Build/Products/Release-iphoneos/BlueTools.app
+            build > build.log 2>&1 || { grep -E "error:" build.log; tail -n 30 build.log; exit 1; }
+          grep -E "warning:" build.log | sort -u || true
+          test -f build/Build/Products/Release-iphoneos/BlueTools.app/BlueTools
 
       - name: Package IPA
         run: |
