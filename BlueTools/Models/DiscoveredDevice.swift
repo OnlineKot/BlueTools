@@ -94,7 +94,7 @@ struct DiscoveredDevice: Identifiable, Equatable {
     var distanceDescription: String {
         let meters = estimatedDistance
         if meters < 0.5 { return "tuż obok" }
-        if meters < 2 { return "ok. \(String(format: "%.1f", meters)) m" }
+        if meters < 2 { return "ok. \(String(format: "%.1f", meters).replacingOccurrences(of: ".", with: ",")) m" }
         if meters < 20 { return "ok. \(Int(meters.rounded())) m" }
         return "daleko"
     }

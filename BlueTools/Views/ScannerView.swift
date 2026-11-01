@@ -241,15 +241,7 @@ struct DeviceRow: View {
                             .foregroundStyle(.orange)
                     }
                 }
-                HStack(spacing: 6) {
-                    if let company = device.companyName, device.hasName || nickname != nil {
-                        Text(company)
-                    }
-                    Text(stale ? device.lastSeen.shortAgo : device.distanceDescription)
-                    if !device.isConnectable {
-                        Text("· tylko rozgłasza")
-                    }
-                }
+                Text(details)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -268,11 +260,24 @@ struct DeviceRow: View {
         .opacity(stale ? 0.6 : 1)
     }
 
+    private var details: String {
+        var parts: [String] = []
+        if let company = device.companyName, device.hasName || nickname != nil {
+            parts.append(company)
+        }
+        parts.append(device.isStale() ? device.lastSeen.shortAgo : device.distanceDescription)
+        if !device.isConnectable {
+            parts.append("tylko rozgłasza")
+        }
+        return parts.joined(separator: " · ")
+    }
+
     private var icon: String {
         let name = (nickname ?? device.name ?? "").lowercased()
         if name.contains("airpods") || name.contains("buds") || name.contains("headphone") || name.contains("słuch") { return "headphones" }
         if name.contains("watch") || name.contains("band") || name.contains("mi smart") { return "applewatch" }
-        if name.contains("keyboard") || name.contains("klawiat") { return "keyboard" }
+        if name.contains("keyboard") || name.contains("klawiat") || name.contains("keys") { return "keyboard" }
+        if name.contains("ruuvi") || name.contains("thermo") || name.contains("termo") { return "thermometer.medium" }
         if name.contains("mouse") || name.contains("mysz") { return "computermouse" }
         if name.contains("tv") { return "tv" }
         if name.contains("speaker") || name.contains("jbl") || name.contains("sonos") { return "hifispeaker" }
