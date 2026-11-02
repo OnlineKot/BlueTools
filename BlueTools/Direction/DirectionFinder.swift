@@ -12,6 +12,17 @@ final class DirectionFinder: ObservableObject {
     @Published private(set) var coverage: Double = 0
     @Published private(set) var latestRSSI: Double?
     @Published private(set) var usesCompass = true
+    @Published private(set) var history: [SignalSample] = []
+
+    struct SignalSample: Identifiable {
+        let id = UUID()
+        let date: Date
+        let rssi: Double
+    }
+
+    private var estimate: Double?
+    private var variance: Double = 16
+    private var lastHistory = Date.distantPast
 
     private let motion = CMMotionManager()
     private var values: [Double?] = Array(repeating: nil, count: DirectionFinder.bucketCount)
@@ -39,7 +50,13 @@ final class DirectionFinder: ObservableObject {
         demoTimer = nil
     }
 
+    var proximity: Double {
+        guard let latestRSSI else { return 0 }
+        return min(max((latestRSSI + 95) / 55, 0), 1)
+    }
+
     func reset() {
+        history = []
         values = Array(repeating: nil, count: Self.bucketCount)
         stamps = Array(repeating: nil, count: Self.bucketCount)
         strengths = values
@@ -94,7 +111,22 @@ final class DirectionFinder: ObservableObject {
     }
 
     private func add(rssi: Double) {
-        latestRSSI = latestRSSI.map { $0 * 0.7 + rssi * 0.3 } ?? rssi
+        if let current = estimate {
+            let predicted = variance + 0.6
+            let gain = predicted / (predicted + 9)
+            estimate = current + gain * (rssi - current)
+            variance = (1 - gain) * predicted
+        } else {
+            estimate = rssi
+            variance = 9
+        }
+        latestRSSI = estimate
+        let now = Date()
+        if now.timeIntervalSince(lastHistory) >= 0.25, let estimate {
+            lastHistory = now
+            history.append(SignalSample(date: now, rssi: estimate))
+            history.removeAll { now.timeIntervalSince($0.date) > 60 }
+        }
         guard let heading else { return }
         let index = Int(heading / (360.0 / Double(Self.bucketCount))) % Self.bucketCount
         if let old = values[index], let stamp = stamps[index], Date().timeIntervalSince(stamp) < 20 {

@@ -56,6 +56,7 @@ enum PrefKey {
     static let sortOrder = "sortOrder"
     static let valueFormat = "valueFormat"
     static let haptics = "haptics"
+    static let finderSound = "finderSound"
     static let autoUpdates = "autoUpdates"
     static let autoInstall = "autoInstall"
     static let installer = "installer"

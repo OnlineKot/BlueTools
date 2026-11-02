@@ -92,9 +92,37 @@ struct RootView: View {
 private struct GlassTabBar: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOS 26.0, *) {
-            content.tabBarMinimizeBehavior(.onScrollDown)
+            content
+                .tabBarMinimizeBehavior(.onScrollDown)
+                .tabViewBottomAccessory {
+                    ScanAccessory()
+                }
         } else {
             content
         }
+    }
+}
+
+private struct ScanAccessory: View {
+    @EnvironmentObject private var bluetooth: BluetoothManager
+
+    var body: some View {
+        HStack(spacing: 10) {
+            PulseDot(active: bluetooth.isScanning)
+            Text(bluetooth.isScanning ? "Scanning" : "Paused")
+                .font(.subheadline.weight(.semibold))
+            Text("\(bluetooth.devices.count) nearby")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button {
+                bluetooth.wantsScanning.toggle()
+            } label: {
+                Image(systemName: bluetooth.isScanning ? "pause.fill" : "play.fill")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(bluetooth.isScanning ? "Pause scanning" : "Resume scanning")
+        }
+        .padding(.horizontal, 16)
     }
 }

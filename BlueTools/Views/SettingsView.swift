@@ -133,8 +133,6 @@ struct SettingsView: View {
                     Text("No ads, no analytics, no accounts. Everything BlueTools sees over Bluetooth stays on your phone.")
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(AppBackground())
             .navigationTitle("Settings")
         }
     }

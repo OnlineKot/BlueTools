@@ -10,51 +10,49 @@ struct UpdateSheet: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                AppBackground()
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 22) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Version \(info.version) is out")
-                                .font(.title.weight(.bold))
-                            Text(subtitle)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.horizontal, 6)
-
-                        if !info.notes.isEmpty {
-                            CardSection(title: "What's new") {
-                                Text(markdown(info.notes))
-                                    .font(.callout)
-                            }
-                        }
-
-                        CardSection(title: "Install with") {
-                            InstallerList(ipa: info.ipa ?? AppLinks.latestIPA) { installer in
-                                if remember { savedInstaller = installer.rawValue }
-                                updates.install(info, with: installer)
-                            }
-                            Divider().padding(.vertical, 10)
-                            Toggle("Use this next time without asking", isOn: $remember)
-                                .font(.subheadline)
-                        }
-
-                        Text("BlueTools closes itself right after handing over, so the installer can replace it.")
-                            .font(.footnote)
+            List {
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Version \(info.version) is out")
+                            .font(.title2.weight(.bold))
+                        Text(subtitle)
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
-                            .padding(.horizontal, 6)
-
-                        Button("Skip this version") {
-                            updates.skip(info)
-                        }
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity)
                     }
-                    .padding(16)
+                    .padding(.vertical, 4)
+                }
+
+                if !info.notes.isEmpty {
+                    Section("What's new") {
+                        Text(markdown(info.notes))
+                            .font(.callout)
+                    }
+                }
+
+                Section {
+                    ForEach(InstallerList.ordered) { installer in
+                        Button {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            if remember { savedInstaller = installer.rawValue }
+                            updates.install(info, with: installer)
+                        } label: {
+                            InstallerRow(installer: installer)
+                        }
+                    }
+                    Toggle("Use this next time without asking", isOn: $remember)
+                } header: {
+                    Text("Install with")
+                } footer: {
+                    Text("BlueTools closes itself right after handing over, so the installer can replace it.")
+                }
+
+                Section {
+                    Button("Skip this version", role: .destructive) {
+                        updates.skip(info)
+                    }
                 }
             }
+            .navigationTitle("Update")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -78,58 +76,38 @@ struct UpdateSheet: View {
     }
 }
 
-struct InstallerList: View {
-    let ipa: URL
-    let choose: (Installer) -> Void
+struct InstallerRow: View {
+    let installer: Installer
 
     var body: some View {
-        VStack(spacing: 8) {
-            ForEach(ordered) { installer in
-                Button {
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    choose(installer)
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: installer.symbol)
-                            .font(.system(size: 18, weight: .semibold))
+        HStack(spacing: 12) {
+            Image(systemName: installer.symbol)
+                .font(.system(size: 20))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 6) {
+                    Text(installer.title)
+                        .foregroundStyle(.primary)
+                    if installer == Installer.suggested {
+                        Text("You're here")
+                            .font(.caption2.weight(.semibold))
                             .foregroundStyle(Color.accentColor)
-                            .frame(width: 38, height: 38)
-                            .glassCircle(tint: Color.accentColor.opacity(0.12))
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 6) {
-                                Text(installer.title)
-                                    .font(.body.weight(.semibold))
-                                if installer == Installer.suggested {
-                                    Text("You're here")
-                                        .font(.caption2.weight(.bold))
-                                        .foregroundStyle(Color.accentColor)
-                                }
-                            }
-                            Text(installer.subtitle)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: "arrow.up.forward")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(.tertiary)
                     }
-                    .padding(10)
-                    .contentShape(Rectangle())
-                    .glassCard(radius: 18, interactive: true)
                 }
-                .buttonStyle(.plain)
+                Text(installer.subtitle)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }
+}
 
-    private var ordered: [Installer] {
+enum InstallerList {
+    static var ordered: [Installer] {
         let suggested = Installer.suggested
-        return Installer.choices.sorted { lhs, rhs in
-            if lhs == suggested { return true }
-            if rhs == suggested { return false }
-            return Installer.choices.firstIndex(of: lhs)! < Installer.choices.firstIndex(of: rhs)!
-        }
+        let base = Installer.choices
+        return base.filter { $0 == suggested } + base.filter { $0 != suggested }
     }
 }
 
@@ -194,7 +172,7 @@ struct UpdateCountdownBanner: View {
             .glassButton()
         }
         .padding(14)
-        .glassCard(radius: 26)
+        .glassCard(radius: 28, interactive: true)
         .padding(.horizontal, 16)
         .task(id: countdown.seconds) {
             try? await Task.sleep(nanoseconds: 1_000_000_000)

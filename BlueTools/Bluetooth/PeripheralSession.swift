@@ -51,6 +51,12 @@ final class PeripheralSession: NSObject, ObservableObject {
     private var pendingReads: Set<ObjectIdentifier> = []
 
     private var rssiTimer: Timer?
+    private var rssiInterval: TimeInterval = 1.0
+
+    func setRSSIInterval(_ interval: TimeInterval) {
+        rssiInterval = interval
+        if isConnected { startRSSIUpdates() }
+    }
 
     init(peripheral: CBPeripheral, manager: BluetoothManager) {
         self.peripheral = peripheral
@@ -229,7 +235,7 @@ final class PeripheralSession: NSObject, ObservableObject {
 
     private func startRSSIUpdates() {
         stopRSSIUpdates()
-        rssiTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        rssiTimer = Timer.scheduledTimer(withTimeInterval: rssiInterval, repeats: true) { [weak self] _ in
             guard let self, self.isConnected else { return }
             self.peripheral.readRSSI()
         }

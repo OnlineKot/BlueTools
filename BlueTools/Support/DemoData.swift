@@ -18,7 +18,7 @@ enum DemoData {
         [
             make(keysID, -62, nil, company: 0x0059, connectable: true, minutesAgo: 14),
             make(UUID(), -48, nil, company: 0x004C, connectable: true, minutesAgo: 9, payload: [0x07, 0x19, 0x01, 0x14, 0x20, 0x55, 0x98, 0x07]),
-            make(UUID(), -60, nil, company: 0x004C, connectable: false, minutesAgo: 8, payload: [0x12, 0x02, 0x00, 0x00]),
+            make(UUID(), -60, nil, company: 0x004C, connectable: false, minutesAgo: 18, payload: [0x12, 0x02, 0x00, 0x00]),
             make(UUID(), -69, nil, company: 0x004C, connectable: false, minutesAgo: 7, payload: [0x10, 0x05, 0x01, 0x18, 0x00, 0x00, 0x00]),
             make(UUID(), -57, "Mi Smart Band 8", company: 0x038F, connectable: true, minutesAgo: 6),
             make(UUID(), -66, "JBL Flip 6", company: 0x0057, connectable: true, minutesAgo: 5),

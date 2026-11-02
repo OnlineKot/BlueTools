@@ -1,19 +1,8 @@
 import SwiftUI
 
 extension Color {
-    static let mint1 = Color(red: 0.13, green: 0.83, blue: 0.66)
+    static let mint1 = Color(red: 0.13, green: 0.78, blue: 0.62)
     static let ocean = Color(red: 0.08, green: 0.40, blue: 0.88)
-}
-
-struct AppBackground: View {
-    @Environment(\.colorScheme) private var scheme
-
-    var body: some View {
-        Rectangle()
-            .fill(scheme == .dark ? Color(red: 0.03, green: 0.08, blue: 0.11) : Color(red: 0.94, green: 0.97, blue: 0.97))
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
-    }
 }
 
 struct GlassCard: ViewModifier {
@@ -25,9 +14,28 @@ struct GlassCard: ViewModifier {
         if #available(iOS 26.0, *) {
             content.glassEffect(glass, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
         } else {
-            content
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(.white.opacity(0.25), lineWidth: 0.5))
+            content.background(.regularMaterial, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+        }
+    }
+
+    @available(iOS 26.0, *)
+    private var glass: Glass {
+        var value = Glass.regular
+        if let tint { value = value.tint(tint) }
+        if interactive { value = value.interactive() }
+        return value
+    }
+}
+
+struct GlassCapsule: ViewModifier {
+    var tint: Color?
+    var interactive = false
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, *) {
+            content.glassEffect(glass, in: Capsule())
+        } else {
+            content.background(.regularMaterial, in: Capsule())
         }
     }
 
@@ -47,7 +55,7 @@ struct GlassCircle: ViewModifier {
         if #available(iOS 26.0, *) {
             content.glassEffect(tint.map { Glass.regular.tint($0) } ?? .regular, in: Circle())
         } else {
-            content.background(.ultraThinMaterial, in: Circle())
+            content.background(.regularMaterial, in: Circle())
         }
     }
 }
@@ -90,38 +98,16 @@ extension View {
         modifier(GlassCard(radius: radius, tint: tint, interactive: interactive))
     }
 
+    func glassCapsule(tint: Color? = nil, interactive: Bool = false) -> some View {
+        modifier(GlassCapsule(tint: tint, interactive: interactive))
+    }
+
     func glassCircle(tint: Color? = nil) -> some View {
         modifier(GlassCircle(tint: tint))
     }
 
     func glassButton(prominent: Bool = false) -> some View {
         modifier(GlassButton(prominent: prominent))
-    }
-}
-
-struct CardSection<Content: View>: View {
-    let title: String
-    var trailing: AnyView?
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(title)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                Spacer()
-                trailing
-            }
-            .padding(.horizontal, 6)
-            VStack(alignment: .leading, spacing: 0) {
-                content
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .glassCard()
-        }
     }
 }
 
@@ -132,9 +118,9 @@ struct SignalBars: View {
     var body: some View {
         HStack(alignment: .bottom, spacing: 2) {
             ForEach(0..<4, id: \.self) { index in
-                RoundedRectangle(cornerRadius: 1.5)
+                RoundedRectangle(cornerRadius: 1)
                     .fill(index < level ? barColor : Color.secondary.opacity(0.25))
-                    .frame(width: 4, height: CGFloat(5 + index * 3))
+                    .frame(width: 3.5, height: CGFloat(5 + index * 3))
             }
         }
         .accessibilityElement()
@@ -151,9 +137,9 @@ struct SignalBars: View {
     }
 }
 
-struct Pill: View {
+struct StatusLabel: View {
     let text: String
-    var color: Color = .accentColor
+    var color: Color = .secondary
     var symbol: String?
 
     var body: some View {
@@ -163,11 +149,8 @@ struct Pill: View {
             }
             Text(text)
         }
-        .font(.caption.weight(.semibold))
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
+        .font(.footnote.weight(.medium))
         .foregroundStyle(color)
-        .glassCard(radius: 100, tint: color.opacity(0.15))
     }
 }
 
@@ -179,12 +162,10 @@ struct EmptyStateView: View {
     var action: (() -> Void)?
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 40, weight: .medium))
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 88, height: 88)
-                .glassCircle()
+                .font(.system(size: 44, weight: .regular))
+                .foregroundStyle(.secondary)
             Text(title)
                 .font(.title3.weight(.semibold))
             Text(message)
@@ -195,7 +176,7 @@ struct EmptyStateView: View {
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
                     .glassButton(prominent: true)
-                    .padding(.top, 4)
+                    .padding(.top, 6)
             }
         }
         .padding(32)
@@ -211,12 +192,12 @@ struct PulseDot: View {
         ZStack {
             Circle()
                 .fill(active ? Color.mint1.opacity(0.4) : Color.clear)
-                .frame(width: 14, height: 14)
+                .frame(width: 12, height: 12)
                 .scaleEffect(animate ? 1.8 : 0.8)
                 .opacity(animate ? 0 : 1)
             Circle()
                 .fill(active ? Color.mint1 : Color.secondary)
-                .frame(width: 8, height: 8)
+                .frame(width: 7, height: 7)
         }
         .onAppear { restart() }
         .onChange(of: active) { _ in restart() }
@@ -240,7 +221,25 @@ struct Toast: View {
             .lineLimit(2)
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
-            .glassCard(radius: 100)
+            .glassCapsule()
             .padding(.horizontal, 24)
+    }
+}
+
+struct InfoRow: View {
+    let label: String
+    let value: String
+    var mono = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(mono ? .callout.monospaced() : .callout)
+                .textSelection(.enabled)
+        }
+        .padding(.vertical, 1)
     }
 }

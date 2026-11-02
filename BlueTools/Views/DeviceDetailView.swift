@@ -21,23 +21,22 @@ struct DeviceDetailView: View {
 
     var body: some View {
         let session = bluetooth.session(for: deviceID)
-        ZStack {
-            AppBackground()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    header(session)
-                    if let session {
-                        SessionSections(session: session)
-                    }
-                    if let device {
-                        identitySection(device)
-                        advertisementSection(device)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 90)
+        List {
+            Section {
+                header(session)
+            }
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+
+            if let session {
+                SessionSections(session: session)
+            }
+            if let device {
+                identitySection(device)
+                advertisementSection(device)
             }
         }
+        .listStyle(.insetGrouped)
         .overlay(alignment: .bottom) {
             if let session {
                 ToastHost(session: session)
@@ -82,14 +81,13 @@ struct DeviceDetailView: View {
     }
 
     private func header(_ session: PeripheralSession?) -> some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
             Image(systemName: device?.identity.kind.symbol ?? "dot.radiowaves.right")
-                .font(.system(size: 34, weight: .semibold))
+                .font(.system(size: 40, weight: .regular))
                 .foregroundStyle(Color.accentColor)
-                .frame(width: 84, height: 84)
-                .glassCircle(tint: Color.accentColor.opacity(0.18))
+                .padding(.top, 8)
 
-            VStack(spacing: 4) {
+            VStack(spacing: 3) {
                 Text(title)
                     .font(.title2.weight(.bold))
                     .multilineTextAlignment(.center)
@@ -97,18 +95,22 @@ struct DeviceDetailView: View {
                     Text(subtitle)
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                if let session {
+                    SessionStateLabel(session: session, connectable: device?.isConnectable ?? true)
+                        .padding(.top, 2)
+                } else if device?.isConnectable == false {
+                    StatusLabel(text: "Broadcast only", symbol: "dot.radiowaves.forward")
+                        .padding(.top, 2)
                 }
             }
 
-            if let session {
-                SessionStatePill(session: session, connectable: device?.isConnectable ?? true)
-            } else if device?.isConnectable == false {
-                Pill(text: "Broadcast only", color: .secondary, symbol: "dot.radiowaves.forward")
-            }
-
             HStack(spacing: 0) {
-                stat(rssiText, "dBm")
+                stat(device.map { "\($0.rssi)" } ?? "?", "dBm")
+                Divider().frame(height: 28)
                 stat(device?.distanceDescription ?? "?", "distance")
+                Divider().frame(height: 28)
                 stat(device.map { "\($0.packets)" } ?? "?", "packets")
             }
 
@@ -120,7 +122,7 @@ struct DeviceDetailView: View {
                     Button {
                         showFinder = true
                     } label: {
-                        Label("Find", systemImage: "location.north.line.fill")
+                        Label("Find", systemImage: "location.north.line")
                             .frame(maxWidth: .infinity)
                     }
                     .glassButton(prominent: session == nil || device?.isConnectable == false)
@@ -129,8 +131,6 @@ struct DeviceDetailView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(20)
-        .glassCard(radius: 30)
     }
 
     private var subtitle: String? {
@@ -140,11 +140,6 @@ struct DeviceDetailView: View {
         if let company = device.companyName { parts.append(company) }
         if parts.isEmpty, device.identity.kind != .unknown { parts.append(device.identity.kind.label) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    private var rssiText: String {
-        if let device { return "\(device.rssi)" }
-        return "?"
     }
 
     private func stat(_ value: String, _ label: String) -> some View {
@@ -160,72 +155,59 @@ struct DeviceDetailView: View {
         .frame(maxWidth: .infinity)
     }
 
-    @ViewBuilder
     private func identitySection(_ device: DiscoveredDevice) -> some View {
-        CardSection(title: "Identified") {
-            InfoRow(label: "Type", value: device.identity.kind.label)
+        Section("Identified") {
+            LabeledContent("Type", value: device.identity.kind.label)
             if let model = device.identity.model {
-                Divider().padding(.vertical, 8)
-                InfoRow(label: "Model", value: model)
+                LabeledContent("Model", value: model)
             }
             if let company = device.companyName, let id = device.companyID {
-                Divider().padding(.vertical, 8)
-                InfoRow(label: "Manufacturer", value: "\(company) (0x\(String(format: "%04X", Int(id))))")
+                LabeledContent("Manufacturer", value: "\(company) · 0x\(String(format: "%04X", Int(id)))")
             }
             ForEach(device.identity.details, id: \.self) { detail in
-                Divider().padding(.vertical, 8)
-                InfoRow(label: "Detail", value: detail)
+                Text(detail)
+                    .font(.callout)
             }
             if !device.serviceUUIDs.isEmpty {
-                Divider().padding(.vertical, 8)
                 InfoRow(label: "Advertised services", value: device.serviceUUIDs.map { KnownIDs.serviceName($0) ?? $0.uuidString }.joined(separator: "\n"))
             }
         }
     }
 
     private func advertisementSection(_ device: DiscoveredDevice) -> some View {
-        CardSection(title: "Advertisement") {
+        Section("Advertisement") {
             InfoRow(label: "Identifier", value: device.id.uuidString, mono: true)
-            Divider().padding(.vertical, 8)
-            InfoRow(label: "Connectable", value: device.isConnectable ? "Yes" : "No")
+            LabeledContent("Connectable", value: device.isConnectable ? "Yes" : "No")
             if let tx = device.txPower {
-                Divider().padding(.vertical, 8)
-                InfoRow(label: "TX power", value: "\(tx) dBm")
+                LabeledContent("TX power", value: "\(tx) dBm")
             }
             if let data = device.manufacturerData {
-                Divider().padding(.vertical, 8)
                 InfoRow(label: "Manufacturer data", value: data.hexString, mono: true)
             }
             ForEach(Array(device.serviceData.keys), id: \.self) { key in
-                Divider().padding(.vertical, 8)
                 InfoRow(label: "Service data \(key.uuidString)", value: device.serviceData[key]?.hexString ?? "", mono: true)
             }
-            Divider().padding(.vertical, 8)
-            InfoRow(label: "First seen", value: device.firstSeen.formatted(date: .omitted, time: .standard))
+            LabeledContent("First seen", value: device.firstSeen.formatted(date: .omitted, time: .standard))
         }
     }
 }
 
-private struct SessionStatePill: View {
+private struct SessionStateLabel: View {
     @ObservedObject var session: PeripheralSession
     let connectable: Bool
 
     var body: some View {
         switch session.state {
         case .idle:
-            if connectable {
-                Pill(text: "Not connected", color: .secondary, symbol: "link")
-            } else {
-                Pill(text: "Broadcast only", color: .secondary, symbol: "dot.radiowaves.forward")
-            }
+            StatusLabel(text: connectable ? "Not connected" : "Broadcast only", symbol: connectable ? "link" : "dot.radiowaves.forward")
         case .connecting:
-            Pill(text: "Connecting", color: .orange, symbol: "hourglass")
+            StatusLabel(text: "Connecting", color: .orange, symbol: "hourglass")
         case .connected:
-            Pill(text: "Connected", color: .mint1, symbol: "checkmark.circle.fill")
+            StatusLabel(text: "Connected", color: .mint1, symbol: "checkmark.circle.fill")
         case .disconnected(let reason):
-            Pill(text: reason == nil ? "Disconnected" : "Connection lost", color: .secondary, symbol: "link.badge.plus")
+            StatusLabel(text: reason == nil ? "Disconnected" : "Connection lost", symbol: "link")
         case .failed:
-            Pill(text: "Couldn't connect", color: .red, symbol: "exclamationmark.triangle.fill")
+            StatusLabel(text: "Couldn't connect", color: .red, symbol: "exclamationmark.triangle.fill")
         }
     }
 }
@@ -298,31 +280,29 @@ private struct SessionSections: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 22) {
+        Group {
             if session.isConnected {
                 if session.services.isEmpty {
-                    HStack(spacing: 12) {
-                        ProgressView()
-                        Text("Asking the device what it can do…")
-                            .foregroundStyle(.secondary)
+                    Section {
+                        HStack(spacing: 10) {
+                            ProgressView()
+                            Text("Asking the device what it can do…")
+                                .foregroundStyle(.secondary)
+                        }
                     }
-                    .padding(16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .glassCard()
                 } else {
                     commandsSection
                 }
             }
 
             ForEach(session.services, id: \.self) { service in
-                CardSection(title: PeripheralSession.name(of: service)) {
+                Section {
                     let characteristics = service.characteristics ?? []
                     if characteristics.isEmpty {
                         Text("No characteristics")
                             .foregroundStyle(.secondary)
                     }
                     ForEach(characteristics, id: \.self) { characteristic in
-                        if characteristic != characteristics.first { Divider().padding(.vertical, 8) }
                         NavigationLink {
                             CharacteristicView(session: session, characteristic: characteristic)
                         } label: {
@@ -333,31 +313,27 @@ private struct SessionSections: View {
                                 format: valueFormat
                             )
                         }
-                        .buttonStyle(.plain)
                     }
+                } header: {
+                    Text(PeripheralSession.name(of: service))
                 }
             }
 
             if !session.log.isEmpty {
-                CardSection(title: "Log") {
+                Section {
                     DisclosureGroup(isExpanded: $showLog) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(session.log.prefix(80)) { entry in
-                                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                                    Text(entry.date, format: .dateTime.hour().minute().second())
-                                        .font(.caption.monospacedDigit())
-                                        .foregroundStyle(.secondary)
-                                    Text(entry.text)
-                                        .font(.callout)
-                                        .foregroundStyle(color(for: entry.kind))
-                                }
+                        ForEach(session.log.prefix(80)) { entry in
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Text(entry.date, format: .dateTime.hour().minute().second())
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(.secondary)
+                                Text(entry.text)
+                                    .font(.callout)
+                                    .foregroundStyle(color(for: entry.kind))
                             }
                         }
-                        .padding(.top, 8)
                     } label: {
-                        Text(session.log.first?.text ?? "")
-                            .font(.callout)
-                            .lineLimit(1)
+                        Label("Log", systemImage: "list.bullet.rectangle")
                     }
                 }
             }
@@ -379,42 +355,44 @@ private struct SessionSections: View {
         return ""
     }
 
+    @ViewBuilder
     private var commandsSection: some View {
         let custom = customCommands.commands(for: session)
-        return CardSection(title: "Commands") {
+        Section {
             if commands.isEmpty && custom.isEmpty {
-                Text("No ready-made commands for this device yet. Open a characteristic to send your own and save it as a command.")
+                Text("No ready-made commands for this device. Open a characteristic below to send your own bytes and save them as a command.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
-            } else {
-                GlassGroup(spacing: 8) {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                        ForEach(commands) { command in
-                            CommandChip(title: command.title, symbol: command.symbol) {
-                                if case .prompt = command.action {
-                                    prompting = command
-                                } else {
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                    session.run(command)
-                                }
-                            }
-                        }
-                        ForEach(custom) { command in
-                            CommandChip(title: command.name, symbol: "star.fill") {
-                                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                session.run(command)
-                            }
-                            .contextMenu {
-                                Button(role: .destructive) {
-                                    customCommands.remove(command)
-                                } label: {
-                                    Label("Delete command", systemImage: "trash")
-                                }
-                            }
-                        }
+            }
+            ForEach(commands) { command in
+                Button {
+                    if case .prompt = command.action {
+                        prompting = command
+                    } else {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        session.run(command)
+                    }
+                } label: {
+                    Label(command.title, systemImage: command.symbol)
+                }
+            }
+            ForEach(custom) { command in
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    session.run(command)
+                } label: {
+                    Label(command.name, systemImage: "star")
+                }
+                .swipeActions {
+                    Button(role: .destructive) {
+                        customCommands.remove(command)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
                     }
                 }
             }
+        } header: {
+            Text("Commands")
         }
     }
 
@@ -427,53 +405,6 @@ private struct SessionSections: View {
     }
 }
 
-struct CommandChip: View {
-    let title: String
-    let symbol: String
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: symbol)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 20)
-                Text(title)
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
-            .contentShape(Rectangle())
-            .glassCard(radius: 16, tint: Color.accentColor.opacity(0.08), interactive: true)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-struct InfoRow: View {
-    let label: String
-    let value: String
-    var mono = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(mono ? .callout.monospaced() : .callout)
-                .textSelection(.enabled)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
 struct CharacteristicRow: View {
     let characteristic: CBCharacteristic
     let value: Data?
@@ -481,34 +412,26 @@ struct CharacteristicRow: View {
     let format: ValueFormat
 
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 6) {
-                    Text(PeripheralSession.name(of: characteristic))
-                        .font(.callout.weight(.semibold))
-                        .lineLimit(1)
-                    if notifying {
-                        Image(systemName: "waveform")
-                            .font(.caption)
-                            .foregroundStyle(Color.mint1)
-                    }
+        VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 6) {
+                Text(PeripheralSession.name(of: characteristic))
+                    .lineLimit(1)
+                if notifying {
+                    Image(systemName: "waveform")
+                        .font(.caption)
+                        .foregroundStyle(Color.mint1)
                 }
-                if let value {
-                    Text(ValueDecoder.decode(characteristic.uuid, value) ?? format.render(value))
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-                Text(PropertyBadge.badges(for: characteristic.properties).joined(separator: " · "))
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
             }
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
+            if let value {
+                Text(ValueDecoder.decode(characteristic.uuid, value) ?? format.render(value))
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+            Text(PropertyBadge.badges(for: characteristic.properties).joined(separator: " · "))
+                .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
-        .contentShape(Rectangle())
     }
 }
 
