@@ -1,6 +1,6 @@
-- Points you toward a device: turn around once and an arrow shows where the signal is strongest.
-- Recognizes far more devices: 4000+ manufacturers, AirPods and Beats models with battery, AirTags and Find My accessories, Galaxy SmartTags, Tile, Swift Pair, Fast Pair, iBeacon and Eddystone.
-- Ready-made commands: ring a tag, read battery, sync the clock, live heart rate, sensors, UART text and more. Save your own commands too.
-- Liquid Glass design and a new icon.
-- English interface.
-- Update checks inside the app and a source for SideStore and LiveContainer.
+- Find mode: Geiger-style ticking that speeds up as you get closer, fast signal readings while connected, a Kalman-filtered signal graph, a direction arrow from a compass sweep, and a Play sound button for tags that can beep.
+- Tracker check: flags AirTags and other Find My accessories, Galaxy SmartTags and Tiles that stay near you for more than 10 minutes.
+- Recognizes far more devices: 4000+ manufacturers, AirPods and Beats models with battery, Swift Pair, Fast Pair, iBeacon and Eddystone.
+- Ready-made commands for common devices, plus your own saved commands.
+- Updates itself: picks up new versions from GitHub and hands them to SideStore, LiveContainer, AltStore, TrollStore, Feather or Safari.
+- Native lists with Liquid Glass on the tab bar and controls, new icon, English interface, CSV export.

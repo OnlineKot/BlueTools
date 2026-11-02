@@ -23,7 +23,15 @@ BlueTools is free and open source. No ads, no accounts, no analytics. The only t
 
 **Tells you what things are.** It knows all 4000+ Bluetooth manufacturer IDs and reads the extra bits devices put in their broadcasts. That's enough to tell an AirPods Pro 2 from a pair of Beats (with battery levels), spot an AirTag or another Find My accessory, a Galaxy SmartTag, a Tile, a Windows PC, Swift Pair and Fast Pair accessories, iBeacons and Eddystone beacons, heart rate straps, scales and sensors.
 
-**Points you toward a device.** Open Find, hold the phone in front of you and turn around once. Your body blocks the signal behind you, so the readings are strongest when you face the device. BlueTools remembers the signal for every compass direction and shows an arrow. Walk that way, do another lap, repeat. It's the same trick people use with handheld radio direction finders. Don't expect a laser pointer, but it's usually enough to tell which way to walk.
+**Helps you find a device.** Open Find and BlueTools does a few things at once:
+
+- It ticks like a Geiger counter (sound and haptics) and ticks faster as you get closer.
+- If the device accepts connections, it connects quietly and reads the signal four times a second instead of waiting for broadcasts.
+- It smooths the signal with a Kalman filter, so the number moves when you move and not on every random spike, and it draws the last minute as a graph.
+- Hold the phone in front of you and turn around once. Your body blocks the signal behind you, so BlueTools remembers how strong it was in every compass direction and shows an arrow. Walk that way, turn again. Don't expect a laser pointer, but it's usually enough to tell which way to go.
+- If it's a tag or key finder that can beep, there's a Play sound button right there.
+
+**Checks for trackers.** AirTags and other Find My accessories, Galaxy SmartTags and Tiles get flagged. If one stays near you for more than 10 minutes, BlueTools tells you and you can go find it.
 
 **Comes with commands.** Connect to a device and BlueTools shows the commands it supports:
 
@@ -43,13 +51,13 @@ BlueTools is free and open source. No ads, no accounts, no analytics. The only t
 
 You can also open any characteristic, send your own bytes and save them as a command. It then shows up on every device that has that characteristic.
 
-**And the basics:** signal and distance for everything nearby, pinning and nicknames, raw advertisement data, a log of everything you sent and received, and value decoding so you see `87%` and `72 bpm` instead of hex.
+**And the basics:** signal and distance for everything nearby, filtering by type, pinning and nicknames, raw advertisement data, a log of everything you sent and received, value decoding so you see `87%` and `72 bpm` instead of hex, and CSV export of a scan.
 
 **Updates itself.** Every time you open BlueTools it asks GitHub for the latest release. If there's a newer one, it counts down from 3, hands the new IPA to the installer you picked (SideStore, LiveContainer, AltStore, TrollStore, Feather, or just Safari) and closes itself so the installer can swap it out. That works inside LiveContainer too. You can turn the automatic part off and get a list to pick from instead, or cancel the countdown.
 
 ## Install
 
-You need iOS 16 or newer. On iOS 26 the app and its icon use Liquid Glass.
+You need iOS 16 or newer. On iOS 26 the icon, the tab bar, the scan status bar and all the floating controls use Liquid Glass. Content stays in plain lists, the way Apple's own apps do it.
 
 ### SideStore or LiveContainer
 
