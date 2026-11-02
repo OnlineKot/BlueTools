@@ -93,7 +93,7 @@ A few other things worth knowing:
 
 ## Releases
 
-Bump `MARKETING_VERSION` in `project.yml`, update `.github/release-notes.md`, and push a commit with `[release]` in the message (or push a `v*` tag). CI builds the IPA and publishes it together with `source.json` and the icon.
+Bump `MARKETING_VERSION` in `project.yml`, update `.github/release-notes.md`, and push a commit whose message starts with `[release]` (or push a `v*` tag). CI builds the IPA and publishes it together with `source.json` and the icon.
 
 ## Limits
 

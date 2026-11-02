@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -38,7 +38,7 @@ jobs:
             echo "APP_VERSION=$(grep MARKETING_VERSION project.yml | head -1 | sed -E 's/.*"(.*)".*/\1/')" >> "$GITHUB_ENV"
           fi
           echo "BUILD_NUMBER=${{ github.run_number }}" >> "$GITHUB_ENV"
-          if [[ "$GITHUB_REF" == refs/tags/v* ]] || [[ "$GITHUB_EVENT_NAME" == "push" && "$COMMIT_MESSAGE" == *"[release]"* ]]; then
+          if [[ "$GITHUB_REF" == refs/tags/v* ]] || [[ "$GITHUB_EVENT_NAME" == "push" && "$COMMIT_MESSAGE" == "[release]"* ]]; then
             echo "PUBLISH=true" >> "$GITHUB_ENV"
           fi
         env:
