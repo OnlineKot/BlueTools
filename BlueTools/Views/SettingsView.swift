@@ -91,7 +91,7 @@ struct SettingsView: View {
                         .disabled(!autoUpdates)
                     Picker("Install with", selection: $installer) {
                         ForEach(Installer.allCases) { option in
-                            Label(option.title, systemImage: option.symbol).tag(option.rawValue)
+                            Text(option.title).tag(option.rawValue)
                         }
                     }
                 } header: {

@@ -254,6 +254,17 @@ enum Installer: String, CaseIterable, Identifiable {
         }
     }
 
+    var iconAsset: String? {
+        switch self {
+        case .sideStore: return "InstallerSideStore"
+        case .liveContainer: return "InstallerLiveContainer"
+        case .altStore: return "InstallerAltStore"
+        case .trollStore: return "InstallerTrollStore"
+        case .feather: return "InstallerFeather"
+        case .ask, .safari: return nil
+        }
+    }
+
     var symbol: String {
         switch self {
         case .ask: return "questionmark.circle"

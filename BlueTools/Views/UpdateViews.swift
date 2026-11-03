@@ -81,10 +81,7 @@ struct InstallerRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: installer.symbol)
-                .font(.system(size: 20))
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 28)
+            InstallerIcon(installer: installer, size: 34)
             VStack(alignment: .leading, spacing: 1) {
                 HStack(spacing: 6) {
                     Text(installer.title)
@@ -99,6 +96,28 @@ struct InstallerRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
+}
+
+struct InstallerIcon: View {
+    let installer: Installer
+    var size: CGFloat = 30
+
+    var body: some View {
+        if let asset = installer.iconAsset {
+            Image(asset)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: size, height: size)
+                .clipShape(RoundedRectangle(cornerRadius: size * 0.225, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: size * 0.225, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5))
+        } else {
+            Image(systemName: installer.symbol)
+                .font(.system(size: size * 0.55, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(width: size, height: size)
+                .background(Color.accentColor, in: RoundedRectangle(cornerRadius: size * 0.225, style: .continuous))
         }
     }
 }
@@ -125,7 +144,11 @@ struct InstallLinks: View {
                         }
                     }
                 } label: {
-                    Label(installer.title, systemImage: installer.symbol)
+                    HStack(spacing: 12) {
+                        InstallerIcon(installer: installer, size: 29)
+                        Text(installer.title)
+                            .foregroundStyle(.primary)
+                    }
                 }
             }
             Button {

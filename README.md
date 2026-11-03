@@ -59,7 +59,7 @@ You can also open any characteristic, send your own bytes and save them as a com
 
 You need iOS 16 or newer. On iOS 26 the icon, the tab bar, the scan status bar and all the floating controls use Liquid Glass. Content stays in plain lists, the way Apple's own apps do it.
 
-### SideStore or LiveContainer
+### <img src="docs/installers/sidestore.png" width="22" align="center"> SideStore or <img src="docs/installers/livecontainer.png" width="22" align="center"> LiveContainer
 
 Tap **Add AltSource** above on your iPhone and pick your app. Or add the source by hand: in SideStore go to **Sources**, in LiveContainer open the sources settings, and paste:
 
@@ -109,4 +109,4 @@ Bug reports and pull requests are welcome. The most useful additions are new dev
 
 ## License
 
-[GPL-3.0](LICENSE). The "Add AltSource" and "Download" buttons come from [AltDirect](https://github.com/StikDebug/altdirect).
+[GPL-3.0](LICENSE). The "Add AltSource" and "Download" buttons come from [AltDirect](https://github.com/StikDebug/altdirect). The SideStore, AltStore, LiveContainer, TrollStore and Feather icons belong to those projects and are only used to point to them.
