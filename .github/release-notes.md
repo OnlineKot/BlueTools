@@ -1,6 +1,5 @@
-- Find mode: Geiger-style ticking that speeds up as you get closer, fast signal readings while connected, a Kalman-filtered signal graph, a direction arrow from a compass sweep, and a Play sound button for tags that can beep.
-- Tracker check: flags AirTags and other Find My accessories, Galaxy SmartTags and Tiles that stay near you for more than 10 minutes.
-- Recognizes far more devices: 4000+ manufacturers, AirPods and Beats models with battery, Swift Pair, Fast Pair, iBeacon and Eddystone.
-- Ready-made commands for common devices, plus your own saved commands.
-- Updates itself: picks up new versions from GitHub and hands them to SideStore, LiveContainer, AltStore, TrollStore, Feather or Safari.
-- Native lists with Liquid Glass on the tab bar and controls, new icon, English interface, CSV export.
+New Bluetooth icon and blue accent color.
+
+- Find mode ticks faster as you get closer, reads the signal faster when it can connect, and shows a graph and a direction arrow.
+- Tracker check warns you about AirTags, SmartTags and Tiles that stay near you.
+- Better device recognition, ready-made commands and CSV export.

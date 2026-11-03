@@ -1,8 +1,8 @@
 {
   "fill": {
     "linear-gradient": [
-      "srgb:0.04706,0.11765,0.17255,1.00000",
-      "srgb:0.04706,0.11765,0.17255,1.00000"
+      "srgb:0.03922,0.48627,1.00000,1.00000",
+      "srgb:0.03922,0.48627,1.00000,1.00000"
     ],
     "orientation": {
       "start": {
@@ -19,34 +19,13 @@
     {
       "layers": [
         {
-          "image-name": "target.svg",
-          "name": "target",
-          "glass": true,
-          "fill": {
-            "linear-gradient": [
-              "srgb:0.35294,0.92157,0.74510,1.00000",
-              "srgb:0.35294,0.92157,0.74510,1.00000"
-            ],
-            "orientation": {
-              "start": {
-                "x": 0.5,
-                "y": 0.0
-              },
-              "stop": {
-                "x": 0.5,
-                "y": 1.0
-              }
-            }
-          }
-        },
-        {
-          "image-name": "source.svg",
-          "name": "source",
+          "image-name": "rune.svg",
+          "name": "rune",
           "glass": true
         }
       ],
       "shadow": {
-        "kind": "layer-color",
+        "kind": "neutral",
         "opacity": 0.5
       },
       "translucency": {
@@ -57,57 +36,25 @@
     {
       "layers": [
         {
-          "image-name": "core.svg",
-          "name": "core",
+          "image-name": "near.svg",
+          "name": "near",
           "glass": true,
-          "fill": {
-            "linear-gradient": [
-              "srgb:0.15686,0.78431,0.74510,1.00000",
-              "srgb:0.15686,0.78431,0.74510,1.00000"
-            ],
-            "orientation": {
-              "start": {
-                "x": 0.5,
-                "y": 0.0
-              },
-              "stop": {
-                "x": 0.5,
-                "y": 1.0
-              }
-            }
-          },
-          "opacity": 0.6
+          "opacity": 0.75
         },
         {
-          "image-name": "beam.svg",
-          "name": "beam",
+          "image-name": "far.svg",
+          "name": "far",
           "glass": true,
-          "fill": {
-            "linear-gradient": [
-              "srgb:0.15686,0.78431,0.74510,1.00000",
-              "srgb:0.15686,0.78431,0.74510,1.00000"
-            ],
-            "orientation": {
-              "start": {
-                "x": 0.5,
-                "y": 0.0
-              },
-              "stop": {
-                "x": 0.5,
-                "y": 1.0
-              }
-            }
-          },
-          "opacity": 0.4
+          "opacity": 0.45
         }
       ],
       "shadow": {
-        "kind": "layer-color",
-        "opacity": 0.35
+        "kind": "neutral",
+        "opacity": 0.3
       },
       "translucency": {
         "enabled": true,
-        "value": 0.5
+        "value": 0.4
       }
     }
   ],

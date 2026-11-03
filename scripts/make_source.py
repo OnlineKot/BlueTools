@@ -11,17 +11,18 @@ notes = open(notes_path, encoding="utf-8").read().strip() if os.path.exists(note
 date = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 icon = f"{base}/latest/download/icon.png"
 ipa = f"{base}/download/v{version}/BlueTools.ipa"
-tint = "266EF5"
+tint = "0A7CFF"
 
 description = (
-    "A Bluetooth LE scanner for iPhone. See what's broadcasting around you, find out what it is, "
-    "point yourself toward it and talk to it with ready-made commands. Open source, no ads, no tracking."
+    "Scans for Bluetooth LE devices around you and tells you what they are: AirPods, AirTags, "
+    "watches, sensors, beacons and more. You can connect, read and write values, and walk your "
+    "way to a lost device with the signal meter and direction arrow. Free and open source."
 )
 
 source = {
     "name": "BlueTools",
     "identifier": "io.github.onlinekot.bluetools.source",
-    "subtitle": "Bluetooth LE tools for iPhone",
+    "subtitle": "Bluetooth Scanner",
     "description": description,
     "iconURL": icon,
     "website": f"https://github.com/{repo}",
@@ -32,7 +33,7 @@ source = {
             "name": "BlueTools",
             "bundleIdentifier": "io.github.onlinekot.bluetools",
             "developerName": "OnlineKot",
-            "subtitle": "Scan, identify and find BLE devices",
+            "subtitle": "Bluetooth Scanner",
             "localizedDescription": description,
             "iconURL": icon,
             "tintColor": tint,

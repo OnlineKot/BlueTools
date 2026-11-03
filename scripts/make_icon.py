@@ -7,38 +7,44 @@ from io import BytesIO
 import cairosvg
 from PIL import Image, ImageChops, ImageFilter
 from shapely import affinity
-from shapely.geometry import Point, Polygon
+from shapely.geometry import LineString
 from shapely.ops import unary_union
 
 ROOT = sys.argv[1] if len(sys.argv) > 1 else "."
 SIZE = 1024
-BACKGROUND = (12, 30, 44)
-BEAM = (40, 200, 190)
-TARGET = (90, 235, 190)
+BACKGROUND = (10, 124, 255)
 
 
-def sector(origin, radius, center, half, rounding):
-    ox, oy = origin
-    points = [origin]
+def stroke(points, width):
+    return LineString(points).buffer(width / 2, cap_style="round", join_style="round", resolution=32)
+
+
+def arc(center, radius, start, end, width):
+    cx, cy = center
+    points = []
     for i in range(97):
-        angle = math.radians(center - half + 2 * half * i / 96)
-        points.append((ox + radius * math.cos(angle), oy + radius * math.sin(angle)))
-    shape = Polygon(points)
-    return shape.buffer(-rounding, join_style="round").buffer(rounding, join_style="round")
+        angle = math.radians(start + (end - start) * i / 96)
+        points.append((cx + radius * math.cos(angle), cy + radius * math.sin(angle)))
+    return stroke(points, width)
 
 
 def build():
-    origin = (318, 712)
-    angle = -45
-    beam = sector(origin, 570, angle, 27, 30)
-    core = sector(origin, 385, angle, 27, 26)
-    target = Point(origin[0] + 470 * math.cos(math.radians(angle)), origin[1] + 470 * math.sin(math.radians(angle))).buffer(68, resolution=96)
-    source = Point(origin).buffer(46, resolution=96)
-    minx, miny, maxx, maxy = unary_union([beam, target, source]).bounds
+    cx, cy, h, w = 0.0, 0.0, 470.0, 66.0
+    r = h * 0.25
+    top, bottom = (cx, cy - h / 2), (cx, cy + h / 2)
+    rune = unary_union([
+        stroke([top, bottom], w),
+        stroke([(cx - r, cy + h / 4), (cx + r, cy - h / 4), top], w),
+        stroke([(cx - r, cy - h / 4), (cx + r, cy + h / 4), bottom], w),
+    ])
+    near = arc((cx, cy), 250, -40, 40, 50)
+    far = arc((cx, cy), 360, -36, 36, 50)
+    rune, near, far = (affinity.scale(g, 0.86, 0.86, origin=(0, 0)) for g in (rune, near, far))
+    minx, miny, maxx, maxy = unary_union([rune, near, far]).bounds
     dx = SIZE / 2 - (minx + maxx) / 2
     dy = SIZE / 2 - (miny + maxy) / 2
     move = lambda g: affinity.translate(g, dx, dy)
-    return move(beam), move(core), move(source), move(target)
+    return move(rune), move(near), move(far)
 
 
 def path_data(geom):
@@ -65,43 +71,27 @@ def color(rgb):
     return "srgb:" + ",".join(f"{c / 255:.5f}" for c in rgb) + ",1.00000"
 
 
-def background():
-    return Image.new("RGBA", (SIZE, SIZE), BACKGROUND + (255,))
+def solid(rgb):
+    return {"linear-gradient": [color(rgb), color(rgb)], "orientation": {"start": {"x": 0.5, "y": 0.0}, "stop": {"x": 0.5, "y": 1.0}}}
 
 
-def tinted(alpha, rgb, opacity):
-    layer = glass_layer(alpha, opacity)
-    colored = Image.new("RGBA", (SIZE, SIZE), rgb + (255,))
-    colored.putalpha(layer.split()[3])
-    rim = layer.copy()
-    rim.putalpha(ImageChops.subtract(layer.split()[3], alpha.point(lambda v: int(v * opacity))))
-    colored.alpha_composite(rim)
-    return colored
-
-
-def glass_layer(alpha, opacity):
-    white = Image.new("L", (SIZE, SIZE), 255)
-    body = Image.merge("RGBA", (white, white, white, alpha.point(lambda v: int(v * opacity))))
-    inner = alpha.filter(ImageFilter.MinFilter(7))
-    edge = ImageChops.subtract(alpha, inner)
-    lit = ImageChops.multiply(edge, ImageChops.invert(ImageChops.offset(alpha, 5, 7)))
-    rim = lit.filter(ImageFilter.GaussianBlur(1.0)).point(lambda v: int(v * 0.9))
-    body.alpha_composite(Image.merge("RGBA", (white, white, white, rim)))
-    return body
+def white(alpha, opacity):
+    full = Image.new("L", (SIZE, SIZE), 255)
+    return Image.merge("RGBA", (full, full, full, alpha.point(lambda v: int(v * opacity))))
 
 
 def shadow(alpha, strength):
     layer = Image.merge("RGBA", (
-        Image.new("L", (SIZE, SIZE), 6),
-        Image.new("L", (SIZE, SIZE), 40),
-        Image.new("L", (SIZE, SIZE), 70),
+        Image.new("L", (SIZE, SIZE), 0),
+        Image.new("L", (SIZE, SIZE), 30),
+        Image.new("L", (SIZE, SIZE), 90),
         alpha.point(lambda v: int(v * strength)),
     ))
-    return ImageChops.offset(layer, 0, 18).filter(ImageFilter.GaussianBlur(22))
+    return ImageChops.offset(layer, 0, 10).filter(ImageFilter.GaussianBlur(14))
 
 
-beam, core, source, target = build()
-files = {"beam.svg": svg(beam), "core.svg": svg(core), "source.svg": svg(source), "target.svg": svg(target)}
+rune, near, far = build()
+files = {"rune.svg": svg(rune), "near.svg": svg(near), "far.svg": svg(far)}
 
 icon_dir = os.path.join(ROOT, "BlueTools", "AppIcon.icon")
 assets = os.path.join(icon_dir, "Assets")
@@ -112,29 +102,21 @@ for name, text in files.items():
     with open(os.path.join(assets, name), "w") as handle:
         handle.write(text)
 
-
-def solid(rgb):
-    return {"linear-gradient": [color(rgb), color(rgb)], "orientation": {"start": {"x": 0.5, "y": 0.0}, "stop": {"x": 0.5, "y": 1.0}}}
-
-
 doc = {
     "fill": solid(BACKGROUND),
     "groups": [
         {
-            "layers": [
-                {"image-name": "target.svg", "name": "target", "glass": True, "fill": solid(TARGET)},
-                {"image-name": "source.svg", "name": "source", "glass": True},
-            ],
-            "shadow": {"kind": "layer-color", "opacity": 0.5},
+            "layers": [{"image-name": "rune.svg", "name": "rune", "glass": True}],
+            "shadow": {"kind": "neutral", "opacity": 0.5},
             "translucency": {"enabled": True, "value": 0.1},
         },
         {
             "layers": [
-                {"image-name": "core.svg", "name": "core", "glass": True, "fill": solid(BEAM), "opacity": 0.6},
-                {"image-name": "beam.svg", "name": "beam", "glass": True, "fill": solid(BEAM), "opacity": 0.4},
+                {"image-name": "near.svg", "name": "near", "glass": True, "opacity": 0.75},
+                {"image-name": "far.svg", "name": "far", "glass": True, "opacity": 0.45},
             ],
-            "shadow": {"kind": "layer-color", "opacity": 0.35},
-            "translucency": {"enabled": True, "value": 0.5},
+            "shadow": {"kind": "neutral", "opacity": 0.3},
+            "translucency": {"enabled": True, "value": 0.4},
         },
     ],
     "supported-platforms": {"squares": "shared"},
@@ -142,13 +124,10 @@ doc = {
 with open(os.path.join(icon_dir, "icon.json"), "w") as handle:
     json.dump(doc, handle, indent=2)
 
-beam_a, core_a, source_a, target_a = (mask(files[n]) for n in ("beam.svg", "core.svg", "source.svg", "target.svg"))
-out = background()
-out.alpha_composite(shadow(beam_a, 0.15))
-out.alpha_composite(tinted(beam_a, BEAM, 0.35))
-out.alpha_composite(tinted(core_a, BEAM, 0.35))
-out.alpha_composite(shadow(source_a, 0.4))
-out.alpha_composite(shadow(target_a, 0.4))
-out.alpha_composite(glass_layer(source_a, 0.97))
-out.alpha_composite(tinted(target_a, TARGET, 1.0))
+rune_a, near_a, far_a = (mask(files[n]) for n in ("rune.svg", "near.svg", "far.svg"))
+out = Image.new("RGBA", (SIZE, SIZE), BACKGROUND + (255,))
+out.alpha_composite(shadow(rune_a, 0.25))
+out.alpha_composite(white(far_a, 0.45))
+out.alpha_composite(white(near_a, 0.75))
+out.alpha_composite(white(rune_a, 1.0))
 out.convert("RGB").save(os.path.join(ROOT, "BlueTools", "Assets.xcassets", "AppIcon.appiconset", "icon.png"))

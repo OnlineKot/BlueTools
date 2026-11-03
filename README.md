@@ -1,7 +1,7 @@
 <div align="center">
   <img src="BlueTools/Assets.xcassets/AppIcon.appiconset/icon.png" width="128" height="128" alt="BlueTools icon">
   <h1>BlueTools</h1>
-  <p><i>A Bluetooth LE scanner for iPhone. See what's around you, find out what it is, walk to it and talk to it.</i></p>
+  <p><i>Bluetooth scanner for iPhone</i></p>
 </div>
 
 <h3 align="center">
